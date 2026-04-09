@@ -49,7 +49,7 @@ export default function BuiltForWorstCase() {
 
                     {/* LEFT: Heading + Body text */}
                     <div className="flex-1 max-w-[720px]">
-                        <h2
+                        <div
                             className="uppercase leading-[1.02] mb-8"
                             style={{
                                 fontFamily: "'Arial Black', 'Arial', sans-serif",
@@ -66,7 +66,7 @@ export default function BuiltForWorstCase() {
                                 SCENARIOS
                             </span>
 
-                        </h2>
+                        </div>
 
                         <div
                             className="space-y-5 text-[#aaaaaa] text-lg text-justify"
