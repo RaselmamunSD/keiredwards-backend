@@ -8,6 +8,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { Step1Data } from "./SignupFlow";
 import Swal from "sweetalert2";
+import { api, ApiRequestError, tokenStorage } from "@/lib/api";
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ const step1Schema = z
       .string()
       .min(1, "Password is required.")
       .min(8, "Password must be at least 8 characters.")
+      .max(128, "Password must be at most 128 characters (server limit).")
       .regex(/[A-Z]/, "Must contain at least one uppercase letter.")
       .regex(/[a-z]/, "Must contain at least one lowercase letter.")
       .regex(/[0-9]/, "Must contain at least one number.")
@@ -36,6 +38,32 @@ const step1Schema = z
   });
 
 type Step1Errors = Partial<Record<keyof Step1Data, string>>;
+
+/** Match Django `AbstractUser.username` allowed characters; max 150. */
+function usernameFromEmail(email: string): string {
+  const local = email.trim().split("@")[0] ?? "user";
+  let s = local.replace(/[^A-Za-z0-9._+-]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  if (!s) s = "user";
+  return s.slice(0, 150);
+}
+
+function isUsernameConflict(err: unknown): boolean {
+  if (!(err instanceof ApiRequestError)) return false;
+  const msg = err.message.toLowerCase();
+  if (!msg.includes("username")) return false;
+  return (
+    msg.includes("already") ||
+    msg.includes("exist") ||
+    msg.includes("unique") ||
+    msg.includes("taken")
+  );
+}
+
+function isEmailConflict(err: unknown): boolean {
+  if (!(err instanceof ApiRequestError)) return false;
+  const msg = err.message.toLowerCase();
+  return msg.includes("email") && (msg.includes("already") || msg.includes("exist") || msg.includes("registered"));
+}
 
 // ─── Password strength ────────────────────────────────────────────────────────
 
@@ -251,20 +279,60 @@ export default function Step1Signup({ data = DEFAULT_STEP1, onChange, onNext }: 
       return;
     }
     setErrors({});
-    // ✅ Only call onNext() AFTER user clicks the confirm button
-    Swal.fire({
-      title: "Account Created Successfully!",
-      text: "Your account is ready. Proceed to the next step to complete your registration.",
-      icon: "success",
-      confirmButtonText: "Continue to Next Step →",
-      confirmButtonColor: "#e8281e",
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-    }).then((result) => {
-      if (result.isConfirmed) {
-        onNext();
+    const run = async () => {
+      const base = usernameFromEmail(data.email);
+      let lastError: unknown;
+
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        const suffix = attempt === 0 ? "" : `_${attempt}`;
+        const maxBase = 150 - suffix.length;
+        const username = `${base.slice(0, Math.max(1, maxBase))}${suffix}`.slice(0, 150);
+
+        try {
+          const register = await api.register({
+            username,
+            email: data.email,
+            password: data.password,
+            password_confirm: data.passwordConfirm,
+          });
+          tokenStorage.set({
+            access: register.data.tokens.access,
+            refresh: register.data.tokens.refresh,
+          });
+          const swalResult = await Swal.fire({
+            title: "Account Created Successfully!",
+            text: "Your account is ready. Proceed to the next step to complete your registration.",
+            icon: "success",
+            confirmButtonText: "Continue to Next Step →",
+            confirmButtonColor: "#e8281e",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+          });
+          if (swalResult.isConfirmed) {
+            onNext();
+          }
+          return;
+        } catch (error) {
+          lastError = error;
+          if (isEmailConflict(error)) {
+            break;
+          }
+          if (isUsernameConflict(error)) {
+            continue;
+          }
+          break;
+        }
       }
-    });
+
+      await Swal.fire({
+        title: "Registration Failed",
+        text:
+          lastError instanceof Error ? lastError.message : "Could not create account.",
+        icon: "error",
+        confirmButtonColor: "#e8281e",
+      });
+    };
+    void run();
   };
 
   return (

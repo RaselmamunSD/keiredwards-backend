@@ -176,8 +176,8 @@ export default function OverviewLayout() {
   const { logout } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push("/");
   };
 

@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { DashboardTab, TABS } from "@/Types/Types";
+import { api } from "@/lib/api";
 import CheckInEmail from "./CheckInEmail";
 import CheckInSchedule from "./CheckInSchedule";
 import TrustedRecipients from "./TrustedRecipients";
@@ -14,6 +15,7 @@ import EmailToRecipients from "./EmailToRecipients";
 import PressRelease from "./PressRelease";
 import DocumentsAndImages from "./DocumentsAndImages";
 import SetupAccounting from "./SetupAccounting";
+import { useEffect } from "react";
 
 // Mock user — replace with real session data in production
 const MOCK_USER = {
@@ -25,6 +27,28 @@ const MOCK_USER = {
 
 export default function DashboardLayout() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("check-in-email");
+  const [summary, setSummary] = useState<{
+    total_payments: number;
+    completed_payment_amount: number;
+  } | null>(null);
+  const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [summaryRes, analyticsRes] = await Promise.all([
+          api.dashboardSummary(),
+          api.dashboardAnalytics(30),
+        ]);
+        setSummary(summaryRes.data);
+        setAnalytics(analyticsRes.data.status_breakdown);
+      } catch {
+        setSummary(null);
+        setAnalytics(null);
+      }
+    };
+    void load();
+  }, []);
 
   return (
     <div className="min-h-screen bg-white w-full overflow-x-hidden">
@@ -72,6 +96,14 @@ export default function DashboardLayout() {
                 Next due:{" "}
                 <span className="font-bold text-gray-900">{MOCK_USER.nextDue}</span>
               </div>
+              {summary && (
+                <div>
+                  Paid total:{" "}
+                  <span className="font-bold text-gray-900">
+                    ${Number(summary.completed_payment_amount).toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -129,6 +161,14 @@ export default function DashboardLayout() {
 
       {/* ── Content Area ── */}
       <div className="bg-white min-h-[calc(100vh-120px)] w-full">
+        {summary && analytics && (
+          <div className="px-4 sm:px-6 lg:px-8 py-4 border-b border-gray-200 text-xs text-gray-700 flex flex-wrap gap-4">
+            <span className="font-semibold">Payments: {summary.total_payments}</span>
+            <span>Completed: {analytics.completed ?? 0}</span>
+            <span>Pending: {analytics.pending ?? 0}</span>
+            <span>Failed: {analytics.failed ?? 0}</span>
+          </div>
+        )}
         {activeTab === "check-in-email"       && <CheckInEmail userEmail={MOCK_USER.email} />}
         {activeTab === "check-in-schedule"    && <CheckInSchedule />}
         {activeTab === "trusted-recipients"   && <TrustedRecipients userEmail={MOCK_USER.email} />}

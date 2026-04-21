@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,14 +87,39 @@ export default function PaymentPage({
   const [passwordError, setPasswordError] = useState("");
   const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
   const [cardErrors, setCardErrors] = useState<Partial<typeof card>>({});
+  const [apiError, setApiError] = useState("");
+
+  const initiatePayment = async (method: "paypal" | "card") => {
+    setApiError("");
+    setStep("processing");
+    try {
+      const response = await api.paymentsCreate({
+        amount,
+        currency: "USD",
+        metadata: {
+          merchantName,
+          method,
+          orderItems,
+        },
+      });
+      const checkoutUrl = response.data.checkout_url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+      setStep("success");
+    } catch (error) {
+      setStep("choose");
+      setApiError(error instanceof Error ? error.message : "Failed to initiate payment.");
+    }
+  };
 
   const handleLogin = () => {
     let valid = true;
     if (!email.includes("@")) { setEmailError("Enter a valid email address."); valid = false; } else setEmailError("");
     if (password.length < 4) { setPasswordError("Enter your PayPal password."); valid = false; } else setPasswordError("");
     if (!valid) return;
-    setStep("processing");
-    setTimeout(() => setStep("success"), 2800);
+    void initiatePayment("paypal");
   };
 
   const handleCardPay = () => {
@@ -104,8 +130,7 @@ export default function PaymentPage({
     if (!card.name.trim()) errs.name = "Enter cardholder name.";
     setCardErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    setStep("processing");
-    setTimeout(() => setStep("success"), 2800);
+    void initiatePayment("card");
   };
 
   const formatCard = (val: string) => {
@@ -150,6 +175,11 @@ export default function PaymentPage({
 
       {/* Main Card */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+          {apiError && (
+            <div className="px-6 pt-4">
+              <p className="text-xs text-red-600 font-semibold">{apiError}</p>
+            </div>
+          )}
 
         {/* Merchant + Amount */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100">
