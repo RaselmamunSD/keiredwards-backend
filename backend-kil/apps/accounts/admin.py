@@ -6,14 +6,20 @@ from .models import User
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    list_display = ("id", "username", "email", "is_staff", "is_verified", "date_joined")
-    list_filter = ("is_staff", "is_superuser", "is_active", "is_verified")
-    search_fields = ("username", "email", "phone")
-    fieldsets = UserAdmin.fieldsets + (
-        ("Additional Info", {"fields": ("phone", "avatar", "bio", "is_verified")}),
+    list_display = ("id", "username", "email", "first_name", "last_name", "is_active", "is_verified", "is_staff", "date_joined")
+    list_filter = ("is_active", "is_staff", "is_superuser", "is_verified", "date_joined")
+    search_fields = ("username", "email", "phone", "first_name", "last_name")
+    date_hierarchy = "date_joined"
+    readonly_fields = ("id", "date_joined", "last_login")
+    fieldsets = (
+        ("Account Info", {"fields": ("id", "username", "email", "password")}),
+        ("Personal Info", {"fields": ("first_name", "last_name", "phone", "bio", "avatar")}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Verification", {"fields": ("is_verified",)}),
+        ("Important Dates", {"fields": ("last_login", "date_joined")}),
     )
 
 
-admin.site.site_header = "Fontaine Administration"
+admin.site.site_header = "🔐 Fontaine Administration"
 admin.site.site_title = "Fontaine Admin Portal"
-admin.site.index_title = "Welcome to Fontaine Backend Admin"
+admin.site.index_title = "Welcome to Fontaine Backend Admin Dashboard"
