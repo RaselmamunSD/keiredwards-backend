@@ -92,7 +92,7 @@ class LoginView(APIView):
             try:
                 from apps.dashboard.models import CheckInHistoryRecord
                 from django.utils import timezone
-                now = timezone.localtime(timezone.now())
+                now = timezone.now()
                 
                 ua = request.META.get("HTTP_USER_AGENT", "").lower()
                 if "windows" in ua:

@@ -296,10 +296,74 @@ class UserVaultFilesView(APIView):
         )
 
 
+def sync_user_checkin_history(user):
+    from apps.authentication.models import AuthAuditLog
+    from apps.dashboard.models import CheckInHistoryRecord
+    
+    # 1. Sync from user.last_login (using UTC date/time)
+    if user.last_login:
+        utc_time = user.last_login
+        date_str = utc_time.strftime("%m/%d/%Y")
+        time_str = utc_time.strftime("%I:%M %p")
+        
+        exists = CheckInHistoryRecord.objects.filter(
+            user=user,
+            date=date_str,
+            time=time_str
+        ).exists()
+        
+        if not exists:
+            CheckInHistoryRecord.objects.create(
+                user=user,
+                date=date_str,
+                time=time_str,
+                ip="127.0.0.1",
+                login_name=user.email or user.username,
+                device_os="Unknown"
+            )
+
+    # 2. Sync from successful AuthAuditLog logins (using UTC date/time)
+    successful_logins = AuthAuditLog.objects.filter(user=user, action="login", was_successful=True)
+    for log in successful_logins:
+        utc_time = log.created_at
+        date_str = utc_time.strftime("%m/%d/%Y")
+        time_str = utc_time.strftime("%I:%M %p")
+        
+        exists = CheckInHistoryRecord.objects.filter(
+            user=user,
+            date=date_str,
+            time=time_str
+        ).exists()
+        
+        if not exists:
+            ua = log.user_agent.lower()
+            if "windows" in ua:
+                device_os = "Windows"
+            elif "macintosh" in ua or "mac os" in ua:
+                device_os = "macOS"
+            elif "iphone" in ua or "ipad" in ua:
+                device_os = "iOS"
+            elif "android" in ua:
+                device_os = "Android"
+            elif "linux" in ua:
+                device_os = "Linux"
+            else:
+                device_os = "Unknown"
+            
+            CheckInHistoryRecord.objects.create(
+                user=user,
+                date=date_str,
+                time=time_str,
+                ip=log.ip_address or "127.0.0.1",
+                login_name=user.email or user.username,
+                device_os=device_os
+            )
+
 class SetupAccountingConfigView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        sync_user_checkin_history(request.user)
         config, created = SetupAccountingConfig.objects.get_or_create(
             user=request.user,
             defaults={"two_fa_email": request.user.email, "has_two_fa": False}
@@ -355,6 +419,7 @@ class SetupAccountingConfigView(APIView):
         )
 
     def post(self, request):
+        sync_user_checkin_history(request.user)
         config, created = SetupAccountingConfig.objects.get_or_create(user=request.user)
 
         two_fa_enabled = request.data.get("two_fa_enabled")
