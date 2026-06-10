@@ -115,17 +115,26 @@ class PasswordResetSerializer(serializers.Serializer):
         return value
 
     def save(self, **kwargs):
-        user = User.objects.get(email=self.validated_data["email"])
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = password_reset_token.make_token(user)
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
-        send_mail(
-            subject="Password Reset Request",
-            message=f"Use this link to reset your password: {reset_url}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        users = User.objects.filter(email=self.validated_data["email"])
+        uid = ""
+        token = ""
+        for user in users:
+            user_uid = urlsafe_base64_encode(force_bytes(user.pk))
+            user_token = password_reset_token.make_token(user)
+            reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={user_uid}&token={user_token}"
+            
+            # Set the first user's tokens to return in the API payload
+            if not uid:
+                uid = user_uid
+                token = user_token
+                
+            send_mail(
+                subject="Password Reset Request",
+                message=f"Use this link to reset your password for user account '{user.username}': {reset_url}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
         return {"uid": uid, "token": token}
 
 
