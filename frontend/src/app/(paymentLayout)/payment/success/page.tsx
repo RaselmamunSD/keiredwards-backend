@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 export default function PaymentSuccessPage() {
   const params = useSearchParams();
   const router = useRouter();
-  const reference = useMemo(() => params.get("reference") || "", [params]);
+  const reference = useMemo(() => (params ? params.get("reference") || "" : ""), [params]);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [message, setMessage] = useState("Verifying payment...");
 
