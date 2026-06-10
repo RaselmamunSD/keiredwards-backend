@@ -23,6 +23,11 @@ function ResetPasswordForm() {
     event.preventDefault();
     setStatus("");
     
+    if (!uid || !token) {
+      setStatus("Invalid or expired reset link. Please request a new link from the forgot password screen.");
+      return;
+    }
+    
     if (newPassword.length < 8) {
       setStatus("Password must be at least 8 characters long.");
       return;
@@ -77,13 +82,6 @@ function ResetPasswordForm() {
           </div>
         )}
 
-        {!uid || !token ? (
-          <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm leading-relaxed">
-            <strong>Invalid or expired reset link.</strong><br />
-            Please request a new link from the forgot password screen.
-          </div>
-        ) : (
-          <>
             {/* New Password */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-[#1b835a]">New Password</label>
@@ -143,8 +141,6 @@ function ResetPasswordForm() {
             >
               {loading ? "Resetting Password..." : "Reset Password"}
             </button>
-          </>
-        )}
       </form>
     </div>
   );
