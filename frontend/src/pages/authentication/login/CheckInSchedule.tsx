@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Swal from "sweetalert2";
 import { api } from "@/lib/api";
 
 const DAY_OPTIONS = [
@@ -117,6 +118,29 @@ export default function CheckInSchedule() {
     }
   };
 
+  const handleRenewPlan = async () => {
+    try {
+      await api.updateSetupAccounting({
+        renew_services: ["I Was Killed For This Information"],
+      });
+      const res = await api.getCheckInSchedule();
+      const data = res.data;
+      const mapped = {
+        dayOfWeek: data.day_of_week,
+        gracePeriod: data.grace_period,
+      };
+      setConfig(mapped);
+      setSavedConfig(mapped);
+      setPaused(data.paused);
+      setPurchasedPlan(data.purchased_plan);
+      setRenewalDate(data.renewal_date);
+      showToast("Check-In plan renewed successfully!");
+    } catch (err) {
+      console.error("Failed to renew plan", err);
+      showToast("Failed to renew plan. Please try again.", "warning");
+    }
+  };
+
 
   const handleUpgradeRenewal = () => {
     setShowUpgradeModal(true);
@@ -177,9 +201,10 @@ export default function CheckInSchedule() {
                 {
                   icon: "🔄",
                   title: "Renew Current Plan",
-                  desc: "Extend your Weekly Check-In for another term.",
+                  desc: `Extend your ${purchasedPlan} Check-In for another term.`,
                   btnLabel: "RENEW NOW",
                   btnClass: "bg-green-500 hover:bg-green-400",
+                  action: handleRenewPlan,
                 },
                 {
                   icon: "⚡",
@@ -187,6 +212,14 @@ export default function CheckInSchedule() {
                   desc: "Switch to Daily, Monthly, or another frequency.",
                   btnLabel: "VIEW UPGRADES",
                   btnClass: "bg-blue-600 hover:bg-blue-500",
+                  action: () => {
+                    Swal.fire({
+                      title: "Upgrade Plan",
+                      text: "Please visit the 'Setup & Accounting' tab on your dashboard under 'New Orders' to purchase or change your plan.",
+                      icon: "info",
+                      confirmButtonColor: "#3b82f6"
+                    });
+                  }
                 },
                 {
                   icon: "💬",
@@ -194,8 +227,16 @@ export default function CheckInSchedule() {
                   desc: "Need a custom plan or have questions? We're here.",
                   btnLabel: "CONTACT US",
                   btnClass: "bg-gray-700 hover:bg-gray-600",
+                  action: () => {
+                    Swal.fire({
+                      title: "Contact Support",
+                      text: "Support email: support@keiredwards.com",
+                      icon: "info",
+                      confirmButtonColor: "#374151"
+                    });
+                  }
                 },
-              ].map(({ icon, title, desc, btnLabel, btnClass }) => (
+              ].map(({ icon, title, desc, btnLabel, btnClass, action }) => (
                 <div
                   key={title}
                   className="flex items-center justify-between gap-4 border border-gray-200 rounded-xl px-4 py-3"
@@ -210,7 +251,7 @@ export default function CheckInSchedule() {
                   <button
                     onClick={() => {
                       setShowUpgradeModal(false);
-                      showToast(`${title} — coming soon! Please contact support.`, "success");
+                      action();
                     }}
                     className={`${btnClass} text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors shrink-0 cursor-pointer`}
                   >

@@ -424,6 +424,11 @@ class SetupAccountingConfigView(APIView):
                 is_purchased=True,
                 active_until="March 7, 2027"
             )
+            plan_name = check_in_service.replace(" Check-In", "")
+            CheckInScheduleConfig.objects.filter(user=request.user).update(
+                purchased_plan=plan_name,
+                renewal_date="March 7, 2027"
+            )
             BillingRecord.objects.create(
                 user=request.user,
                 date="06/11/2026",
@@ -437,6 +442,10 @@ class SetupAccountingConfigView(APIView):
                 ActiveService.objects.filter(user=request.user, name=sname).update(
                     active_until="March 7, 2028"
                 )
+                if sname == "I Was Killed For This Information":
+                    CheckInScheduleConfig.objects.filter(user=request.user).update(
+                        renewal_date="March 7, 2028"
+                    )
                 BillingRecord.objects.create(
                     user=request.user,
                     date="06/11/2026",
