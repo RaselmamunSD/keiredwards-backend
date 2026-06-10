@@ -1,11 +1,8 @@
 "use client";
 
-// DashboardLayout — updated per client feedback.
-// White header with gear icon, CHECK-IN OK badge, last/next check-in dates.
-// Tab bar sits directly below with border separation (no gap).
-// Fully responsive — no horizontal scroll on mobile.
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { DashboardTab, TABS } from "@/Types/Types";
 import { api } from "@/lib/api";
 import CheckInEmail from "./CheckInEmail";
@@ -15,7 +12,6 @@ import EmailToRecipients from "./EmailToRecipients";
 import PressRelease from "./PressRelease";
 import DocumentsAndImages from "./DocumentsAndImages";
 import SetupAccounting from "./SetupAccounting";
-import { useEffect } from "react";
 
 // Mock user — replace with real session data in production
 const MOCK_USER = {
@@ -26,6 +22,9 @@ const MOCK_USER = {
 };
 
 export default function DashboardLayout() {
+  const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
   const [activeTab, setActiveTab] = useState<DashboardTab>("check-in-email");
   const [summary, setSummary] = useState<{
     total_payments: number;
@@ -34,6 +33,13 @@ export default function DashboardLayout() {
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
+    if (!authLoading && !isLoggedIn) {
+      router.push("/login");
+    }
+  }, [authLoading, isLoggedIn, router]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
     const load = async () => {
       try {
         const [summaryRes, analyticsRes] = await Promise.all([
@@ -48,7 +54,15 @@ export default function DashboardLayout() {
       }
     };
     void load();
-  }, []);
+  }, [isLoggedIn]);
+
+  if (authLoading || !isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-sm text-gray-500">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white w-full overflow-x-hidden">

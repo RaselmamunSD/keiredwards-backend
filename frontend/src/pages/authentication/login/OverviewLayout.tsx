@@ -9,7 +9,7 @@
 // UPDATED: Two-Factor Authentication set to Active per client feedback.
 // UPDATED: Storage split into Standard Storage + Additional Storage rows per client feedback.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
@@ -170,16 +170,29 @@ function CardRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 export default function OverviewLayout() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { isLoggedIn, isLoading: authLoading, logout } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !isLoggedIn) {
+      router.push("/login");
+    }
+  }, [authLoading, isLoggedIn, router]);
 
   const handleLogout = async () => {
     await logout();
     router.push("/");
   };
+
+  if (authLoading || !isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-sm text-gray-500">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white py-8 sm:py-10">
