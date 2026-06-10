@@ -50,7 +50,12 @@ MIDDLEWARE = [
     "apps.authentication.middleware.LoginActivityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.RequestResponseLoggingMiddleware",
+    "apps.core.middleware.CustomSecurityHeadersMiddleware",
+    "apps.core.middleware.IPRestrictionMiddleware",
 ]
+
+BLACKLISTED_IPS = []
 
 ROOT_URLCONF = "config.urls"
 
