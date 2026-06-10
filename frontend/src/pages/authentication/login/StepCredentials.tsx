@@ -5,6 +5,8 @@
 import { LoginCredentials } from "@/Types/Types";
 import { useState } from "react";
 import { z } from "zod";
+import { api, tokenStorage, ApiRequestError } from "@/lib/api";
+import Swal from "sweetalert2";
 
 
 // ── Zod schema ────────────────────────────────────────────────────────────────
@@ -12,8 +14,7 @@ import { z } from "zod";
 const credentialsSchema = z.object({
   username: z
     .string()
-    .min(1, "Email address is required.")
-    .email("Please enter a valid email address."),
+    .min(1, "Username or email address is required."),
   password: z
     .string()
     .min(1, "Password is required."),
@@ -86,6 +87,7 @@ export default function StepCredentials({ onSuccess }: Props) {
   const [errors, setErrors] = useState<CredentialErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const set = (field: keyof LoginCredentials, value: string) => {
     const updated = { ...form, [field]: value };
@@ -101,7 +103,7 @@ export default function StepCredentials({ onSuccess }: Props) {
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setSubmitted(true);
     const result = credentialsSchema.safeParse(form);
     if (!result.success) {
@@ -109,7 +111,47 @@ export default function StepCredentials({ onSuccess }: Props) {
       setErrors(Object.fromEntries(Object.entries(flat).map(([k, v]) => [k, v?.[0]])));
       return;
     }
-    onSuccess(form);
+
+    setIsLoading(true);
+    try {
+      const response = await api.login({
+        username: form.username,
+        password: form.password,
+      });
+      
+      // Store tokens
+      tokenStorage.set({
+        access: response.data.access,
+        refresh: response.data.refresh,
+      });
+
+      // Show success message
+      await Swal.fire({
+        title: "Login Successful!",
+        text: `Welcome back, ${form.username}!`,
+        icon: "success",
+        confirmButtonText: "Continue",
+        confirmButtonColor: "#22c55e",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+
+      // Call success handler to navigate
+      onSuccess(form);
+    } catch (error) {
+      const message = error instanceof ApiRequestError 
+        ? error.message 
+        : "Login failed. Please check your credentials.";
+      
+      await Swal.fire({
+        title: "Login Failed",
+        text: message,
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -124,15 +166,15 @@ export default function StepCredentials({ onSuccess }: Props) {
           {/* Email Address */}
           <div className="flex flex-col gap-1">
             <label htmlFor="username" className="text-white text-xs font-semibold tracking-widest uppercase">
-              Email Address
+              Username or Email
             </label>
             <input
               id="username"
-              type="email"
+              type="text"
               value={form.username}
               onChange={e => set("username", e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleLogin()}
-              autoComplete="email"
+              autoComplete="username"
               className={`w-full h-9 bg-white text-black text-sm px-2 border-0 focus:outline-none focus:ring-2 focus:ring-green-400 rounded ${errors.username ? "ring-2 ring-red-500" : ""
                 }`}
             />
@@ -205,9 +247,10 @@ export default function StepCredentials({ onSuccess }: Props) {
           <div className="pt-1">
             <button
               onClick={handleLogin}
+              disabled={isLoading}
               className="
     inline-flex items-center justify-center
-    bg-green-500 hover:bg-green-400 active:bg-green-600
+    bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed
     text-black font-bold text-sm
     px-8 py-2.5
     rounded
@@ -218,7 +261,7 @@ export default function StepCredentials({ onSuccess }: Props) {
     focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2
   "
             >
-              LOGIN
+              {isLoading ? "Logging in..." : "LOGIN"}
             </button>
           </div>
         </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
+import { api } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,9 +45,7 @@ function Toast({ message, type = "success" }: { message: string; type?: "success
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TrustedRecipients({ userEmail }: Props) {
-  const [recipients, setRecipients] = useState<TrustedRecipient[]>([
-    { id: "owner", firstName: "Self", email: userEmail, isOwner: true },
-  ]);
+  const [recipients, setRecipients] = useState<TrustedRecipient[]>([]);
 
   const [showEmails, setShowEmails] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -58,6 +57,24 @@ export default function TrustedRecipients({ userEmail }: Props) {
   // ── Toast State ──
   const [toast, setToast] = useState("");
   const [toastType, setToastType] = useState<"success" | "warning" | "error">("success");
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.getTrustedRecipients();
+        const mapped = res.data.map(r => ({
+          id: String(r.id),
+          firstName: r.first_name,
+          email: r.email,
+          isOwner: r.is_owner,
+        }));
+        setRecipients(mapped);
+      } catch (err) {
+        console.error("Failed to load trusted recipients", err);
+      }
+    };
+    void load();
+  }, []);
 
   const showToast = (msg: string, type: "success" | "warning" | "error" = "success") => {
     setToast(msg);
@@ -74,7 +91,7 @@ export default function TrustedRecipients({ userEmail }: Props) {
     return {};
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     // FIX: Maximum 10 recipients validation
     if (recipients.length >= 10) {
       showToast("You have reached the maximum limit of 10 trusted recipients.", "error");
@@ -85,13 +102,35 @@ export default function TrustedRecipients({ userEmail }: Props) {
     const errs = validate({ firstName, email });
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    setRecipients(prev => [...prev, { id: Date.now().toString(), firstName, email }]);
-    setFirstName(""); setEmail(""); setErrors({}); setSubmitted(false); setShowAddForm(false);
-    showToast("Recipient added successfully.", "success");
+
+    try {
+      const res = await api.addTrustedRecipient({ first_name: firstName, email });
+      const newRecipient = {
+        id: String(res.data.id),
+        firstName: res.data.first_name,
+        email: res.data.email,
+        isOwner: res.data.is_owner,
+      };
+      setRecipients(prev => [...prev, newRecipient]);
+      setFirstName("");
+      setEmail("");
+      setErrors({});
+      setSubmitted(false);
+      setShowAddForm(false);
+      showToast("Recipient added successfully.", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to add recipient.", "error");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setRecipients(prev => prev.filter(r => r.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await api.deleteTrustedRecipient(Number(id));
+      setRecipients(prev => prev.filter(r => r.id !== id));
+      showToast("Recipient deleted successfully.", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete recipient.", "error");
+    }
   };
 
   const handleFieldChange = (field: "firstName" | "email", value: string) => {

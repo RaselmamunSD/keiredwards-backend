@@ -1,9 +1,10 @@
 // Tab 7 — Setup & Accounting
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowUp } from "react-icons/md";
 import Swal from "sweetalert2";
 import { z } from "zod";
+import { api } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -412,21 +413,31 @@ function LoginSecurityContent({ hasTwoFA }: { hasTwoFA: boolean }) {
 
 // ─── Active Services ──────────────────────────────────────────────────────────
 
-function ActiveServicesContent() {
-  const [services, setServices] = useState(ACTIVE_SERVICES.map(s => ({ ...s, renew: false })));
+interface ActiveServicesProps {
+  services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
+  onPurchase: (name: string) => Promise<void>;
+  onRenew: (names: string[]) => Promise<void>;
+}
+
+function ActiveServicesContent({ services: initialServices, onPurchase, onRenew }: ActiveServicesProps) {
+  const [services, setServices] = useState(initialServices.map(s => ({ ...s, renew: false })));
   const [renewSuccess, setRenewSuccess] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
 
-  const handlePurchaseNow = (serviceName: string) => {
-    setServices(prev => prev.map(s => s.name === serviceName ? { ...s, isPurchased: true, activeUntil: "March 7, 2027" } : s));
+  useEffect(() => {
+    setServices(initialServices.map(s => ({ ...s, renew: false })));
+  }, [initialServices]);
+
+  const handlePurchaseNow = async (serviceName: string) => {
+    await onPurchase(serviceName);
     setPurchaseSuccess(serviceName);
     setTimeout(() => setPurchaseSuccess(null), 3000);
   };
 
-  const handleRenewSelected = () => {
-    const selected = services.filter(s => s.renew);
+  const handleRenewSelected = async () => {
+    const selected = services.filter(s => s.renew).map(s => s.name);
     if (selected.length === 0) return;
-    setServices(prev => prev.map(s => s.renew ? { ...s, renew: false, activeUntil: "March 7, 2028" } : s));
+    await onRenew(selected);
     setRenewSuccess(true);
     setTimeout(() => setRenewSuccess(false), 3000);
   };
@@ -455,17 +466,17 @@ function ActiveServicesContent() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {services.map((s, i) => (
-              <tr key={i} className={`transition-colors ${s.isPurchased ? "bg-green-50/40 hover:bg-green-50" : "bg-red-50/40 hover:bg-red-50"}`}>
+              <tr key={i} className={`transition-colors ${s.is_purchased ? "bg-green-50/40 hover:bg-green-50" : "bg-red-50/40 hover:bg-red-50"}`}>
                 <td className="px-2 py-3 font-semibold text-gray-800 text-sm">{s.name}</td>
-                <td className="px-2 py-3 text-gray-500 text-sm hidden sm:table-cell">{s.additionalInfo}</td>
+                <td className="px-2 py-3 text-gray-500 text-sm hidden sm:table-cell">{s.additional_info}</td>
                 <td className="px-2 py-3 text-sm">
-                  {s.isPurchased
-                    ? <span className="text-gray-700">{s.activeUntil}</span>
+                  {s.is_purchased
+                    ? <span className="text-gray-700">{s.active_until}</span>
                     : <span className="border border-red-400 text-red-500 text-xs font-bold rounded-full px-2 py-0.5">NOT PURCHASED</span>
                   }
                 </td>
                 <td className="px-4 py-3 text-center">
-                  {s.isPurchased
+                  {s.is_purchased
                     ? (
                       <input
                         type="checkbox"
@@ -760,16 +771,13 @@ function NewOrdersContent() {
 
 // ─── Billing History ──────────────────────────────────────────────────────────
 
-function BillingHistoryContent() {
+interface BillingHistoryProps {
+  billing: Array<{ date: string; description: string; amount: string; is_included?: boolean }>;
+}
+
+function BillingHistoryContent({ billing }: BillingHistoryProps) {
   return (
     <div className="space-y-4">
-      <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 flex items-start gap-2">
-        <span className="text-lg shrink-0">ℹ️</span>
-        <div className="text-xs text-gray-700 leading-relaxed">
-          <span className="font-bold text-blue-700">Phase 3 — Billing data will be connected to live payment records in a future phase.</span><br />
-          The data below is placeholder information for layout and design review only.
-        </div>
-      </div>
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -779,13 +787,13 @@ function BillingHistoryContent() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {BILLING_RECORDS.map((r, i) => (
+            {billing.map((r, i) => (
               <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 text-gray-700">
                   <span className="font-semibold">{r.date}</span> — {r.description}
                 </td>
-                <td className={`px-4 py-3 text-right font-semibold ${r.isIncluded ? "text-green-600" : "text-gray-800"}`}>
-                  {r.isIncluded ? "Included" : r.amount}
+                <td className={`px-4 py-3 text-right font-semibold ${r.is_included ? "text-green-600" : "text-gray-800"}`}>
+                  {r.is_included ? "Included" : r.amount}
                 </td>
               </tr>
             ))}
@@ -798,16 +806,13 @@ function BillingHistoryContent() {
 
 // ─── Check-In History ─────────────────────────────────────────────────────────
 
-function CheckInHistoryContent() {
+interface CheckInHistoryProps {
+  history: Array<{ date: string; time: string; ip: string; login_name: string; device_os: string }>;
+}
+
+function CheckInHistoryContent({ history }: CheckInHistoryProps) {
   return (
     <div className="space-y-4">
-      <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 flex items-start gap-2">
-        <span className="text-lg shrink-0">ℹ️</span>
-        <div className="text-xs text-gray-700 leading-relaxed">
-          <span className="font-bold text-blue-700">Phase 3 — Check-in history will be connected to live account data in a future phase.</span><br />
-          The records below are placeholder data for layout and design review only.
-        </div>
-      </div>
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -818,13 +823,13 @@ function CheckInHistoryContent() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {CHECKIN_HISTORY.map((r, i) => (
+            {history.map((r, i) => (
               <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{r.date}</td>
                 <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{r.time}</td>
                 <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">{r.ip}</td>
-                <td className="px-4 py-3 text-blue-600 underline whitespace-nowrap cursor-pointer hover:text-blue-800">{r.loginName}</td>
-                <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{r.deviceOS}</td>
+                <td className="px-4 py-3 text-blue-600 underline whitespace-nowrap cursor-pointer hover:text-blue-800">{r.login_name}</td>
+                <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{r.device_os}</td>
               </tr>
             ))}
           </tbody>
@@ -907,17 +912,81 @@ function CancelContent() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SetupAccounting() {
-  const MOCK_USER_EMAIL = "user@example.com";
-  const MOCK_HAS_2FA = true;
-  const [twoFAEnabled, setTwoFAEnabled] = useState(true);
+  const [data, setData] = useState<{
+    config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
+    services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
+    billing: Array<{ date: string; description: string; amount: string; is_included: boolean }>;
+    history: Array<{ date: string; time: string; ip: string; login_name: string; device_os: string }>;
+  } | null>(null);
 
   const [open, setOpen] = useState<Record<string, boolean>>({
     login: false, loginSecurity: false, activeServices: false,
     newOrders: false, billingHistory: false, checkInHistory: false, cancelServices: false,
   });
+
+  const loadData = async () => {
+    try {
+      const res = await api.getSetupAccounting();
+      setData(res.data);
+    } catch (err) {
+      console.error("Failed to load setup and accounting data", err);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
   const toggle = (key: string) => setOpen(p => ({ ...p, [key]: !p[key] }));
 
-  const twoFABadge = !MOCK_HAS_2FA
+  const handleUpdate2FA = async (enabled: boolean, emailVal?: string) => {
+    try {
+      const res = await api.updateSetupAccounting({
+        two_fa_enabled: enabled,
+        two_fa_email: emailVal,
+      });
+      setData(res.data);
+      return true;
+    } catch (err) {
+      console.error("Failed to update 2FA", err);
+      return false;
+    }
+  };
+
+  const handlePurchaseService = async (serviceName: string) => {
+    try {
+      const res = await api.updateSetupAccounting({
+        purchase_service: serviceName,
+      });
+      setData(res.data);
+    } catch (err) {
+      console.error("Failed to purchase service", err);
+    }
+  };
+
+  const handleRenewServices = async (serviceNames: string[]) => {
+    try {
+      const res = await api.updateSetupAccounting({
+        renew_services: serviceNames,
+      });
+      setData(res.data);
+    } catch (err) {
+      console.error("Failed to renew services", err);
+    }
+  };
+
+  if (!data) {
+    return (
+      <div className="p-4 lg:px-16 py-6 text-black flex items-center justify-center container mx-auto max-w-6xl min-h-[300px]">
+        <p className="text-sm text-gray-500">Loading setup and accounting details...</p>
+      </div>
+    );
+  }
+
+  const hasTwoFA = data.config.has_two_fa;
+  const twoFAEnabled = data.config.two_fa_enabled;
+
+  const twoFABadge = !hasTwoFA
     ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-300">NOT PURCHASED</span>
     : twoFAEnabled
       ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300">ENABLED</span>
@@ -937,21 +1006,22 @@ export default function SetupAccounting() {
       <SectionWrapper>
         <SectionHeader title="Setup" />
         <AccordionRow label="Login" expanded={open.login} onToggle={() => toggle("login")} />
-        {open.login && <AccordionContent><LoginContent userEmail={MOCK_USER_EMAIL} /></AccordionContent>}
+        {open.login && <AccordionContent><LoginContent userEmail={data.config.two_fa_email || "user@example.com"} /></AccordionContent>}
 
         <AccordionRow
           label="Login Security (2FA)"
           expanded={open.loginSecurity}
-          onToggle={() => { if (MOCK_HAS_2FA) toggle("loginSecurity"); }}
+          onToggle={() => { if (hasTwoFA) toggle("loginSecurity"); }}
           statusBadge={twoFABadge}
-          disabled={!MOCK_HAS_2FA}
+          disabled={!hasTwoFA}
         />
-        {open.loginSecurity && MOCK_HAS_2FA && (
+        {open.loginSecurity && hasTwoFA && (
           <AccordionContent>
             <LoginSecurityContentWithCallback
-              hasTwoFA={MOCK_HAS_2FA}
-              onToggle={(val: boolean) => setTwoFAEnabled(val)}
+              hasTwoFA={hasTwoFA}
               twoFAEnabled={twoFAEnabled}
+              initialEmail={data.config.two_fa_email || ""}
+              onUpdate={handleUpdate2FA}
             />
           </AccordionContent>
         )}
@@ -961,18 +1031,26 @@ export default function SetupAccounting() {
       <SectionWrapper>
         <SectionHeader title="Accounting" />
         <AccordionRow label="Active Services" expanded={open.activeServices} onToggle={() => toggle("activeServices")} />
-        {open.activeServices && <AccordionContent><ActiveServicesContent /></AccordionContent>}
+        {open.activeServices && (
+          <AccordionContent>
+            <ActiveServicesContent
+              services={data.services}
+              onPurchase={handlePurchaseService}
+              onRenew={handleRenewServices}
+            />
+          </AccordionContent>
+        )}
         <AccordionRow label="New Orders" expanded={open.newOrders} onToggle={() => toggle("newOrders")} />
         {open.newOrders && <AccordionContent><NewOrdersContent /></AccordionContent>}
         <AccordionRow label="Billing History" expanded={open.billingHistory} onToggle={() => toggle("billingHistory")} />
-        {open.billingHistory && <AccordionContent><BillingHistoryContent /></AccordionContent>}
+        {open.billingHistory && <AccordionContent><BillingHistoryContent billing={data.billing} /></AccordionContent>}
       </SectionWrapper>
 
       {/* ── CHECK-IN HISTORY ── */}
       <SectionWrapper>
         <SectionHeader title="Check-In History" />
         <AccordionRow label="View" expanded={open.checkInHistory} onToggle={() => toggle("checkInHistory")} />
-        {open.checkInHistory && <AccordionContent><CheckInHistoryContent /></AccordionContent>}
+        {open.checkInHistory && <AccordionContent><CheckInHistoryContent history={data.history} /></AccordionContent>}
       </SectionWrapper>
 
       {/* ── CANCEL ── */}
@@ -988,17 +1066,25 @@ export default function SetupAccounting() {
 
 // ─── LoginSecurityContent with callback for badge sync ────────────────────────
 
+interface LoginSecurityProps {
+  hasTwoFA: boolean;
+  twoFAEnabled: boolean;
+  initialEmail: string;
+  onUpdate: (enabled: boolean, email?: string) => Promise<boolean>;
+}
+
 function LoginSecurityContentWithCallback({
   hasTwoFA,
-  onToggle,
   twoFAEnabled,
-}: {
-  hasTwoFA: boolean;
-  onToggle: (val: boolean) => void;
-  twoFAEnabled: boolean;
-}) {
-  const [twoFAEmail, setTwoFAEmail] = useState(hasTwoFA ? MOCK_CHECKIN_EMAIL : "");
+  initialEmail,
+  onUpdate,
+}: LoginSecurityProps) {
+  const [twoFAEmail, setTwoFAEmail] = useState(initialEmail);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setTwoFAEmail(initialEmail);
+  }, [initialEmail]);
 
   if (!hasTwoFA) {
     return (
@@ -1010,6 +1096,16 @@ function LoginSecurityContentWithCallback({
       </div>
     );
   }
+
+  const handleSave = async () => {
+    if (twoFAEmail.trim()) {
+      const ok = await onUpdate(twoFAEnabled, twoFAEmail);
+      if (ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    }
+  };
 
   return (
     <div className="text-sm space-y-4">
@@ -1037,20 +1133,20 @@ function LoginSecurityContentWithCallback({
             className="border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all flex-1 min-w-64"
           />
           <button
-            onClick={() => { if (twoFAEmail.trim()) { setSaved(true); setTimeout(() => setSaved(false), 3000); } }}
-            className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors"
+            onClick={handleSave}
+            className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer"
           >
             SAVE
           </button>
           <button
-            onClick={() => onToggle(true)}
-            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${twoFAEnabled ? "bg-green-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+            onClick={() => onUpdate(true, twoFAEmail)}
+            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer ${twoFAEnabled ? "bg-green-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
           >
             ENABLE 2FA
           </button>
           <button
-            onClick={() => onToggle(false)}
-            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${!twoFAEnabled ? "bg-gray-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+            onClick={() => onUpdate(false, twoFAEmail)}
+            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer ${!twoFAEnabled ? "bg-gray-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
           >
             DISABLE 2FA
           </button>

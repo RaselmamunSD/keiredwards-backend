@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CiEdit } from "react-icons/ci";
 import { IoMdSave } from "react-icons/io";
+import { api } from "@/lib/api";
 
 const DEFAULT_PRESS_TEMPLATE = `URGENT: Critical Information Released by [Your Name]
 
@@ -61,17 +62,47 @@ export default function PressRelease() {
   // ── Alert Modal State ──
   const [alertMessage, setAlertMessage] = useState("");
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.getPressRelease();
+        setIsActive(res.data.is_active);
+        setTemplate(res.data.template);
+        setDraft(res.data.template);
+        setCurrentTier(res.data.current_tier);
+      } catch (err) {
+        console.error("Failed to load press release template", err);
+      }
+    };
+    void load();
+  }, []);
+
   const handleEdit = () => {
     setDraft(template);
     setIsEditing(true);
     setSaved(false);
   };
 
-  const handleSave = () => {
-    setTemplate(draft);
-    setIsEditing(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    try {
+      const res = await api.savePressRelease({ template: draft });
+      setTemplate(res.data.template);
+      setIsEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Failed to save press release template", err);
+    }
+  };
+
+  const handleActiveToggle = async () => {
+    const nextActive = !isActive;
+    try {
+      const res = await api.savePressRelease({ is_active: nextActive });
+      setIsActive(res.data.is_active);
+    } catch (err) {
+      console.error("Failed to toggle press release status", err);
+    }
   };
 
   const handleCancel = () => {
@@ -126,7 +157,7 @@ export default function PressRelease() {
           </div>
         </div>
         <button
-          onClick={() => setIsActive(a => !a)}
+          onClick={handleActiveToggle}
           className={`text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${isActive ? "bg-red-500 hover:bg-red-400" : "bg-green-500 hover:bg-green-400"}`}
         >
           {isActive ? "DISABLE PRESS RELEASE" : "ENABLE PRESS RELEASE"}

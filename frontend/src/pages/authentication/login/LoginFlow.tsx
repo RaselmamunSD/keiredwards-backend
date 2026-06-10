@@ -1,7 +1,7 @@
 "use client";
 
 // LoginFlow — "use client" boundary for login.
-// On successful credentials, navigates to /dashboard.
+// On successful credentials, navigates to /overview (dashboard).
 
 import { useRouter } from "next/navigation";
 import StepCredentials from "./StepCredentials";
@@ -12,10 +12,10 @@ export default function LoginFlow() {
   const router = useRouter();
 
   const handleSuccess = (credentials: LoginCredentials) => {
-    // In production: call your auth API, set session/cookie, then redirect.
-    // For now, simulate successful login and navigate to dashboard.
-    console.log("Authenticated:", credentials.username);
-    router.push("/dashboard");
+    // Tokens are already stored in localStorage by StepCredentials
+    // Navigate to dashboard/overview page
+    console.log("Successfully logged in as:", credentials.username);
+    router.push("/overview");
   };
 
   return (

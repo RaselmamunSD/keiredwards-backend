@@ -240,4 +240,105 @@ export const api = {
       private_email_password: string;
       private_email_password_saved: boolean;
     }>("dashboard/checkin-email/", "POST", payload),
+  getCheckInSchedule: () =>
+    authorizedRequest<{
+      id: number;
+      day_of_week: string;
+      grace_period: string;
+      paused: boolean;
+      purchased_plan: string;
+      renewal_date: string;
+    }>("dashboard/checkin-schedule/", "GET"),
+  saveCheckInSchedule: (payload: Partial<{
+    day_of_week: string;
+    grace_period: string;
+    paused: boolean;
+    purchased_plan: string;
+    renewal_date: string;
+  }>) =>
+    authorizedRequest<{
+      id: number;
+      day_of_week: string;
+      grace_period: string;
+      paused: boolean;
+      purchased_plan: string;
+      renewal_date: string;
+    }>("dashboard/checkin-schedule/", "POST", payload),
+  getTrustedRecipients: () =>
+    authorizedRequest<Array<{
+      id: number;
+      first_name: string;
+      email: string;
+      is_owner: boolean;
+    }>>("dashboard/trusted-recipients/", "GET"),
+  addTrustedRecipient: (payload: { first_name: string; email: string }) =>
+    authorizedRequest<{
+      id: number;
+      first_name: string;
+      email: string;
+      is_owner: boolean;
+    }>("dashboard/trusted-recipients/", "POST", payload),
+  deleteTrustedRecipient: (id: number) =>
+    authorizedRequest<{}>("dashboard/trusted-recipients/", "DELETE", { id }),
+  getEmailTemplate: () =>
+    authorizedRequest<{
+      id: number;
+      template: string;
+    }>("dashboard/email-template/", "GET"),
+  saveEmailTemplate: (payload: { template: string }) =>
+    authorizedRequest<{
+      id: number;
+      template: string;
+    }>("dashboard/email-template/", "POST", payload),
+  getPressRelease: () =>
+    authorizedRequest<{
+      id: number;
+      is_active: boolean;
+      template: string;
+      current_tier: number;
+    }>("dashboard/press-release/", "GET"),
+  savePressRelease: (payload: Partial<{
+    is_active: boolean;
+    template: string;
+    current_tier: number;
+  }>) =>
+    authorizedRequest<{
+      id: number;
+      is_active: boolean;
+      template: string;
+      current_tier: number;
+    }>("dashboard/press-release/", "POST", payload),
+  getVaultFiles: () =>
+    authorizedRequest<{
+      storage_config: { total_storage_gb: number };
+      files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+    }>("dashboard/vault-files/", "GET"),
+  saveVaultFiles: (payload: {
+    total_storage_gb?: number;
+    files?: Array<{ name: string; sizeMB: string }>;
+  }) =>
+    authorizedRequest<{
+      storage_config: { total_storage_gb: number };
+      files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+    }>("dashboard/vault-files/", "POST", payload),
+  getSetupAccounting: () =>
+    authorizedRequest<{
+      config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
+      services: Array<{ id: number; name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
+      billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
+      history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
+    }>("dashboard/setup-accounting/", "GET"),
+  updateSetupAccounting: (payload: {
+    two_fa_enabled?: boolean;
+    two_fa_email?: string;
+    purchase_service?: string;
+    renew_services?: string[];
+  }) =>
+    authorizedRequest<{
+      config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
+      services: Array<{ id: number; name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
+      billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
+      history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
+    }>("dashboard/setup-accounting/", "POST", payload),
 };
+

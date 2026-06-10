@@ -6,11 +6,38 @@ from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.views import APIView
 
+from rest_framework.exceptions import ValidationError
 from apps.core.responses import success_response
 from apps.payments.models import Payment
 
-from .models import DashboardWidget, CheckInEmailConfig
-from .serializers import DashboardWidgetSerializer, CheckInEmailConfigSerializer
+from .models import (
+    DashboardWidget,
+    CheckInEmailConfig,
+    CheckInScheduleConfig,
+    TrustedRecipient,
+    EmailTemplateConfig,
+    PressReleaseConfig,
+    StorageConfig,
+    UserVaultFile,
+    SetupAccountingConfig,
+    ActiveService,
+    BillingRecord,
+    CheckInHistoryRecord,
+)
+from .serializers import (
+    DashboardWidgetSerializer,
+    CheckInEmailConfigSerializer,
+    CheckInScheduleConfigSerializer,
+    TrustedRecipientSerializer,
+    EmailTemplateConfigSerializer,
+    PressReleaseConfigSerializer,
+    StorageConfigSerializer,
+    UserVaultFileSerializer,
+    SetupAccountingConfigSerializer,
+    ActiveServiceSerializer,
+    BillingRecordSerializer,
+    CheckInHistoryRecordSerializer,
+)
 
 
 class DashboardSummaryView(APIView):
@@ -103,3 +130,262 @@ class CheckInEmailConfigView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return success_response("Check-in email config updated successfully.", serializer.data, status.HTTP_200_OK)
+
+
+
+class CheckInScheduleConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        config, created = CheckInScheduleConfig.objects.get_or_create(user=request.user)
+        serializer = CheckInScheduleConfigSerializer(config)
+        return success_response("Check-in schedule config fetched successfully.", serializer.data, status.HTTP_200_OK)
+
+    def post(self, request):
+        config, created = CheckInScheduleConfig.objects.get_or_create(user=request.user)
+        serializer = CheckInScheduleConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("Check-in schedule config updated successfully.", serializer.data, status.HTTP_200_OK)
+
+
+class TrustedRecipientsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        owner_recipient, created = TrustedRecipient.objects.get_or_create(
+            user=request.user,
+            is_owner=True,
+            defaults={"first_name": "Self", "email": request.user.email}
+        )
+        if owner_recipient.email != request.user.email:
+            owner_recipient.email = request.user.email
+            owner_recipient.save()
+
+        recipients = TrustedRecipient.objects.filter(user=request.user)
+        serializer = TrustedRecipientSerializer(recipients, many=True)
+        return success_response("Trusted recipients fetched successfully.", serializer.data, status.HTTP_200_OK)
+
+    def post(self, request):
+        if TrustedRecipient.objects.filter(user=request.user).count() >= 10:
+            raise ValidationError("Maximum limit of 10 trusted recipients reached.")
+
+        serializer = TrustedRecipientSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return success_response("Recipient added successfully.", serializer.data, status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        recipient_id = request.data.get("id") or request.query_params.get("id")
+        if not recipient_id:
+            raise ValidationError("Recipient ID is required.")
+        try:
+            recipient = TrustedRecipient.objects.get(id=recipient_id, user=request.user)
+            if recipient.is_owner:
+                raise ValidationError("Cannot delete the account owner recipient.")
+            recipient.delete()
+            return success_response("Recipient deleted successfully.", {}, status.HTTP_200_OK)
+        except TrustedRecipient.DoesNotExist:
+            raise ValidationError("Recipient not found.")
+
+
+class EmailTemplateConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        DEFAULT_TEMPLATE = (
+            "Dear <Name>,\n\n"
+            "This is Your Name. If you are receiving this message, it means I have been incapacitated or killed. "
+            "I use \"I Was Killed For This Information\" to securely store vital information regarding:\n\n"
+            "Included in this email is a secure link granting you access to my files, photos, and supporting evidence. "
+            "Inside the link, you will find my instructions, a summary of what I've learned, and the proof I have documented.\n\n"
+            "I trust that you will review this information carefully and share it with the appropriate authorities.\n\n"
+            "<LINK>\n\n"
+            "Thank you,\nYour Name"
+        )
+        config, created = EmailTemplateConfig.objects.get_or_create(
+            user=request.user,
+            defaults={"template": DEFAULT_TEMPLATE}
+        )
+        serializer = EmailTemplateConfigSerializer(config)
+        return success_response("Email template fetched successfully.", serializer.data, status.HTTP_200_OK)
+
+    def post(self, request):
+        config, created = EmailTemplateConfig.objects.get_or_create(user=request.user)
+        serializer = EmailTemplateConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("Email template updated successfully.", serializer.data, status.HTTP_200_OK)
+
+
+class PressReleaseConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        DEFAULT_PRESS_TEMPLATE = (
+            "URGENT: Critical Information Released by [Your Name]\n\n"
+            "This press release is being distributed in accordance with a pre-arranged security protocol. "
+            "The account holder has missed their scheduled check-in, triggering this automatic distribution.\n\n"
+            "The following information has been secured and is now available to designated recipients and the public:\n\n"
+            "[Brief description of what the information contains]\n\n"
+            "This release was configured in advance as a protective measure. All materials have been encrypted and verified for authenticity.\n\n"
+            "For access to the complete documentation, please visit the secure link provided to verified recipients.\n\n"
+            "Contact Information:\n"
+            "Distributed via: I Was Killed For This Information\n"
+            "Date: [Auto-generated]\n"
+            "Reference ID: [Auto-generated]"
+        )
+        config, created = PressReleaseConfig.objects.get_or_create(
+            user=request.user,
+            defaults={"template": DEFAULT_PRESS_TEMPLATE}
+        )
+        serializer = PressReleaseConfigSerializer(config)
+        return success_response("Press release template fetched successfully.", serializer.data, status.HTTP_200_OK)
+
+    def post(self, request):
+        config, created = PressReleaseConfig.objects.get_or_create(user=request.user)
+        serializer = PressReleaseConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("Press release template updated successfully.", serializer.data, status.HTTP_200_OK)
+
+
+class UserVaultFilesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
+        files = UserVaultFile.objects.filter(user=request.user)
+        return success_response(
+            "Vault files fetched successfully.",
+            {
+                "storage_config": StorageConfigSerializer(storage_config).data,
+                "files": UserVaultFileSerializer(files, many=True).data,
+            },
+            status.HTTP_200_OK
+        )
+
+    def post(self, request):
+        total_storage_gb = request.data.get("total_storage_gb")
+        if total_storage_gb:
+            storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
+            storage_config.total_storage_gb = total_storage_gb
+            storage_config.save()
+
+        files_data = request.data.get("files")
+        if files_data is not None:
+            UserVaultFile.objects.filter(user=request.user).delete()
+            created_files = []
+            for fd in files_data:
+                f = UserVaultFile.objects.create(
+                    user=request.user,
+                    file_name=fd.get("name"),
+                    file_size_mb=fd.get("sizeMB")
+                )
+                created_files.append(f)
+
+        storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
+        files = UserVaultFile.objects.filter(user=request.user)
+        return success_response(
+            "Vault files saved successfully.",
+            {
+                "storage_config": StorageConfigSerializer(storage_config).data,
+                "files": UserVaultFileSerializer(files, many=True).data,
+            },
+            status.HTTP_200_OK
+        )
+
+
+class SetupAccountingConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        config, created = SetupAccountingConfig.objects.get_or_create(
+            user=request.user,
+            defaults={"two_fa_email": request.user.email}
+        )
+
+        if created:
+            ActiveService.objects.create(user=request.user, name="I Was Killed For This Information", additional_info="Daily Check-in", active_until="March 7, 2027", is_purchased=True)
+            ActiveService.objects.create(user=request.user, name="Additional Storage", additional_info="5 GB", active_until="March 7, 2027", is_purchased=True)
+            ActiveService.objects.create(user=request.user, name="Press Release", additional_info="250 count*", active_until="March 7, 2027", is_purchased=True)
+            ActiveService.objects.create(user=request.user, name="Two-Factor Authentication", additional_info="Checkin & Login", active_until="Not Purchased", is_purchased=False)
+            ActiveService.objects.create(user=request.user, name="Private Email", additional_info="500 Messages Per year", active_until="March 7, 2027", is_purchased=True)
+
+            BillingRecord.objects.create(user=request.user, date="02/23/2026", description="Professional Plan", amount="$29.99")
+            BillingRecord.objects.create(user=request.user, date="02/23/2026", description="Storage: 5 GB (Default)", amount="Included", is_included=True)
+            BillingRecord.objects.create(user=request.user, date="01/23/2026", description="Professional Plan", amount="$29.99")
+            BillingRecord.objects.create(user=request.user, date="12/23/2025", description="Professional Plan", amount="$29.99")
+
+            CheckInHistoryRecord.objects.create(user=request.user, date="02/24/2026", time="09:15 AM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
+            CheckInHistoryRecord.objects.create(user=request.user, date="02/17/2026", time="02:30 PM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
+            CheckInHistoryRecord.objects.create(user=request.user, date="02/10/2026", time="11:45 AM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
+
+        services = ActiveService.objects.filter(user=request.user)
+        billing = BillingRecord.objects.filter(user=request.user)
+        history = CheckInHistoryRecord.objects.filter(user=request.user)
+
+        return success_response(
+            "Setup & Accounting fetched successfully.",
+            {
+                "config": SetupAccountingConfigSerializer(config).data,
+                "services": ActiveServiceSerializer(services, many=True).data,
+                "billing": BillingRecordSerializer(billing, many=True).data,
+                "history": CheckInHistoryRecordSerializer(history, many=True).data,
+            },
+            status.HTTP_200_OK
+        )
+
+    def post(self, request):
+        config, created = SetupAccountingConfig.objects.get_or_create(user=request.user)
+
+        two_fa_enabled = request.data.get("two_fa_enabled")
+        if two_fa_enabled is not None:
+            config.two_fa_enabled = two_fa_enabled
+
+        two_fa_email = request.data.get("two_fa_email")
+        if two_fa_email is not None:
+            config.two_fa_email = two_fa_email
+
+        config.save()
+
+        purchase_service = request.data.get("purchase_service")
+        if purchase_service:
+            ActiveService.objects.filter(user=request.user, name=purchase_service).update(
+                is_purchased=True,
+                active_until="March 7, 2027"
+            )
+            BillingRecord.objects.create(
+                user=request.user,
+                date="06/11/2026",
+                description=f"Purchase: {purchase_service}",
+                amount="$39.00"
+            )
+
+        renew_services = request.data.get("renew_services")
+        if renew_services:
+            for sname in renew_services:
+                ActiveService.objects.filter(user=request.user, name=sname).update(
+                    active_until="March 7, 2028"
+                )
+                BillingRecord.objects.create(
+                    user=request.user,
+                    date="06/11/2026",
+                    description=f"Renewal: {sname}",
+                    amount="$29.99"
+                )
+
+        services = ActiveService.objects.filter(user=request.user)
+        billing = BillingRecord.objects.filter(user=request.user)
+        history = CheckInHistoryRecord.objects.filter(user=request.user)
+
+        return success_response(
+            "Setup & Accounting updated successfully.",
+            {
+                "config": SetupAccountingConfigSerializer(config).data,
+                "services": ActiveServiceSerializer(services, many=True).data,
+                "billing": BillingRecordSerializer(billing, many=True).data,
+                "history": CheckInHistoryRecordSerializer(history, many=True).data,
+            },
+            status.HTTP_200_OK
+        )

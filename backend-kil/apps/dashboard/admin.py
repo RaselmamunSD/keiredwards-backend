@@ -1,6 +1,19 @@
 from django.contrib import admin
 
-from .models import DashboardWidget, CheckInEmailConfig
+from .models import (
+    DashboardWidget,
+    CheckInEmailConfig,
+    CheckInScheduleConfig,
+    TrustedRecipient,
+    EmailTemplateConfig,
+    PressReleaseConfig,
+    StorageConfig,
+    UserVaultFile,
+    SetupAccountingConfig,
+    ActiveService,
+    BillingRecord,
+    CheckInHistoryRecord,
+)
 
 
 @admin.register(DashboardWidget)
@@ -54,3 +67,77 @@ class CheckInEmailConfigAdmin(admin.ModelAdmin):
         ("Private Email Config", {"fields": ("private_email_username", "private_email_address_saved", "private_email_password", "private_email_password_saved")}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )
+
+
+@admin.register(CheckInScheduleConfig)
+class CheckInScheduleConfigAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "day_of_week", "grace_period", "paused", "purchased_plan", "renewal_date", "updated_at")
+    list_filter = ("day_of_week", "grace_period", "paused", "purchased_plan")
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(TrustedRecipient)
+class TrustedRecipientAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "first_name", "email", "is_owner", "created_at")
+    list_filter = ("is_owner", "created_at")
+    search_fields = ("user__username", "user__email", "first_name", "email")
+
+
+@admin.register(EmailTemplateConfig)
+class EmailTemplateConfigAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "updated_at")
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("id", "updated_at")
+
+
+@admin.register(PressReleaseConfig)
+class PressReleaseConfigAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "is_active", "current_tier", "updated_at")
+    list_filter = ("is_active", "current_tier")
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("id", "updated_at")
+
+
+@admin.register(StorageConfig)
+class StorageConfigAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "total_storage_gb", "updated_at")
+    list_filter = ("total_storage_gb",)
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("id", "updated_at")
+
+
+@admin.register(UserVaultFile)
+class UserVaultFileAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "file_name", "file_size_mb", "uploaded_at")
+    search_fields = ("user__username", "user__email", "file_name")
+    readonly_fields = ("id", "uploaded_at")
+
+
+@admin.register(SetupAccountingConfig)
+class SetupAccountingConfigAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "two_fa_enabled", "two_fa_email", "has_two_fa")
+    list_filter = ("two_fa_enabled", "has_two_fa")
+    search_fields = ("user__username", "user__email", "two_fa_email")
+    readonly_fields = ("id",)
+
+
+@admin.register(ActiveService)
+class ActiveServiceAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "name", "additional_info", "active_until", "is_purchased")
+    list_filter = ("is_purchased", "name")
+    search_fields = ("user__username", "user__email", "name")
+
+
+@admin.register(BillingRecord)
+class BillingRecordAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "date", "description", "amount", "is_included")
+    list_filter = ("is_included", "date")
+    search_fields = ("user__username", "user__email", "description")
+
+
+@admin.register(CheckInHistoryRecord)
+class CheckInHistoryRecordAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "date", "time", "ip", "login_name", "device_os")
+    list_filter = ("date", "device_os")
+    search_fields = ("user__username", "user__email", "login_name", "ip")

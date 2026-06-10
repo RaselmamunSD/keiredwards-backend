@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 const DAY_OPTIONS = [
   "Randomize", "Monday", "Tuesday", "Wednesday",
@@ -30,8 +31,8 @@ function Toast({ message, type = "success" }: { message: string; type?: "success
 }
 
 export default function CheckInSchedule() {
-  const purchasedPlan = "Weekly";
-  const renewalDate = "03/23/2026";
+  const [purchasedPlan, setPurchasedPlan] = useState("Weekly");
+  const [renewalDate, setRenewalDate] = useState("03/23/2026");
 
   const [config, setConfig] = useState<ScheduleConfig>({
     dayOfWeek: "Randomize",
@@ -49,6 +50,27 @@ export default function CheckInSchedule() {
   const [isDirty, setIsDirty] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.getCheckInSchedule();
+        const data = res.data;
+        const mapped = {
+          dayOfWeek: data.day_of_week,
+          gracePeriod: data.grace_period,
+        };
+        setConfig(mapped);
+        setSavedConfig(mapped);
+        setPaused(data.paused);
+        setPurchasedPlan(data.purchased_plan);
+        setRenewalDate(data.renewal_date);
+      } catch (err) {
+        console.error("Failed to load check-in schedule config", err);
+      }
+    };
+    void load();
+  }, []);
+
   const showToast = (msg: string, type: "success" | "warning" = "success") => {
     setToast(msg);
     setToastType(type);
@@ -60,19 +82,41 @@ export default function CheckInSchedule() {
     setIsDirty(true);
   };
 
-  const handleSave = () => {
-    setSavedConfig({ ...config });
-    setIsDirty(false);
-    showToast("Schedule configuration saved successfully.");
+  const handleSave = async () => {
+    try {
+      const res = await api.saveCheckInSchedule({
+        day_of_week: config.dayOfWeek,
+        grace_period: config.gracePeriod,
+      });
+      const mapped = {
+        dayOfWeek: res.data.day_of_week,
+        gracePeriod: res.data.grace_period,
+      };
+      setConfig(mapped);
+      setSavedConfig(mapped);
+      setIsDirty(false);
+      showToast("Schedule configuration saved successfully.");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to save schedule configuration.", "warning");
+    }
   };
 
-  const handlePauseToggle = () => {
-    setPaused(p => !p);
-    showToast(
-      paused ? "Service resumed. Check-in requirements are active." : "Service paused. Remember to resume when ready.",
-      paused ? "success" : "warning"
-    );
+  const handlePauseToggle = async () => {
+    const nextPaused = !paused;
+    try {
+      const res = await api.saveCheckInSchedule({
+        paused: nextPaused,
+      });
+      setPaused(res.data.paused);
+      showToast(
+        res.data.paused ? "Service paused. Remember to resume when ready." : "Service resumed. Check-in requirements are active.",
+        res.data.paused ? "warning" : "success"
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to toggle pause status.", "warning");
+    }
   };
+
 
   const handleUpgradeRenewal = () => {
     setShowUpgradeModal(true);

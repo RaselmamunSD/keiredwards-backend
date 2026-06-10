@@ -1,14 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 interface UploadedFile {
   id: string;
   name: string;
   sizeMB: string;
 }
-
-const TOTAL_STORAGE_GB = 5;
 
 interface StoragePlan {
   gb: number;
@@ -59,17 +58,15 @@ function AlertModal({ message, onClose }: { message: string; onClose: () => void
 
 // ── Order More Storage Modal ──────────────────────────────────────────────────
 
-function OrderStorageModal({ currentGB, usedGB, onClose, onPurchaseAlert }: {
+function OrderStorageModal({ currentGB, usedGB, onClose, onPurchase }: {
   currentGB: number;
   usedGB: number;
   onClose: () => void;
-  // FIX: Pass alert handler up instead of using alert()
-  onPurchaseAlert: (msg: string) => void;
+  onPurchase: (plan: StoragePlan) => void;
 }) {
-  // FIX: Purchase button now shows modal instead of browser alert()
   const handlePurchase = (plan: StoragePlan) => {
     onClose();
-    onPurchaseAlert(`Your request to purchase ${plan.gb} GB storage at ${plan.price} has been received. Please contact support to complete this transaction.`);
+    onPurchase(plan);
   };
 
   return (
@@ -84,39 +81,41 @@ function OrderStorageModal({ currentGB, usedGB, onClose, onPurchaseAlert }: {
         </div>
 
         <div className="px-6 space-y-2 pb-3">
-          {STORAGE_PLANS.map(plan => (
-            <div
-              key={plan.gb}
-              className={`flex items-center justify-between gap-4 border rounded-xl px-4 py-3 ${plan.isCurrent ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"}`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <svg className="w-7 h-7 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <ellipse cx="12" cy="5" rx="9" ry="3" />
-                  <path d="M21 12c0 1.657-4.03 3-9 3s-9-1.343-9-3" />
-                  <path d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5" />
-                </svg>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-800">
-                    {plan.gb} GB Storage
-                    {plan.isCurrent && <span className="ml-1.5 text-blue-600 font-bold text-xs">(Current Plan)</span>}
-                  </p>
-                  <p className="text-xs text-gray-500">{plan.description}</p>
+          {STORAGE_PLANS.map(plan => {
+            const isCurrent = plan.gb === currentGB;
+            return (
+              <div
+                key={plan.gb}
+                className={`flex items-center justify-between gap-4 border rounded-xl px-4 py-3 ${isCurrent ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"}`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <svg className="w-7 h-7 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M21 12c0 1.657-4.03 3-9 3s-9-1.343-9-3" />
+                    <path d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {plan.gb} GB Storage
+                      {isCurrent && <span className="ml-1.5 text-blue-600 font-bold text-xs">(Current Plan)</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">{plan.description}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="text-sm font-bold text-gray-800">{plan.price}</span>
+                  {!isCurrent && (
+                    <button
+                      onClick={() => handlePurchase(plan)}
+                      className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Purchase
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                {/* FIX: Removed /mo — storage is not billed monthly in this context */}
-                <span className="text-sm font-bold text-gray-800">{plan.price}</span>
-                {!plan.isCurrent && (
-                  <button
-                    onClick={() => handlePurchase(plan)}
-                    className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Purchase
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mx-6 mb-4 border border-red-200 bg-red-50 rounded-xl px-4 py-3">
@@ -143,6 +142,7 @@ function OrderStorageModal({ currentGB, usedGB, onClose, onPurchaseAlert }: {
 
 export default function DocumentsAndImages() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [totalStorageGB, setTotalStorageGB] = useState(5);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -154,7 +154,25 @@ export default function DocumentsAndImages() {
   const [alertMessage, setAlertMessage] = useState("");
 
   const usedGB = files.reduce((acc, f) => acc + parseFloat(f.sizeMB) / 1024, 0);
-  const usedPercent = Math.min((usedGB / TOTAL_STORAGE_GB) * 100, 100);
+  const usedPercent = Math.min((usedGB / totalStorageGB) * 100, 100);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.getVaultFiles();
+        setTotalStorageGB(res.data.storage_config.total_storage_gb);
+        const mapped = res.data.files.map(f => ({
+          id: String(f.id),
+          name: f.file_name,
+          sizeMB: f.file_size_mb,
+        }));
+        setFiles(mapped);
+      } catch (err) {
+        console.error("Failed to load vault files", err);
+      }
+    };
+    void load();
+  }, []);
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
@@ -183,14 +201,47 @@ export default function DocumentsAndImages() {
     setIsProcessing(true);
     setProcessingDone(false);
 
-    for (const step of PROCESSING_STEPS) {
-      setProcessingStep(step);
-      await new Promise(res => setTimeout(res, 900));
-    }
+    try {
+      const payloadFiles = files.map(f => ({
+        name: f.name,
+        sizeMB: f.sizeMB,
+      }));
+      const res = await api.saveVaultFiles({
+        total_storage_gb: totalStorageGB,
+        files: payloadFiles,
+      });
 
-    setIsProcessing(false);
-    setProcessingDone(true);
-    setProcessingStep("");
+      for (const step of PROCESSING_STEPS) {
+        setProcessingStep(step);
+        await new Promise(res => setTimeout(res, 900));
+      }
+
+      setTotalStorageGB(res.data.storage_config.total_storage_gb);
+      const mapped = res.data.files.map(f => ({
+        id: String(f.id),
+        name: f.file_name,
+        sizeMB: f.file_size_mb,
+      }));
+      setFiles(mapped);
+
+      setIsProcessing(false);
+      setProcessingDone(true);
+      setProcessingStep("");
+    } catch (err) {
+      setIsProcessing(false);
+      setProcessingStep("");
+      setAlertMessage(err instanceof Error ? err.message : "Failed to save and secure files.");
+    }
+  };
+
+  const handlePurchaseStorage = async (plan: StoragePlan) => {
+    try {
+      const res = await api.saveVaultFiles({ total_storage_gb: plan.gb });
+      setTotalStorageGB(res.data.storage_config.total_storage_gb);
+      setAlertMessage(`Successfully upgraded to ${plan.gb} GB storage!`);
+    } catch (err) {
+      setAlertMessage(err instanceof Error ? err.message : "Failed to upgrade storage plan.");
+    }
   };
 
   const getFileIcon = (name: string) => {
@@ -269,7 +320,7 @@ export default function DocumentsAndImages() {
 
         <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
           <span>Total storage used:</span>
-          <span>{TOTAL_STORAGE_GB} GB total</span>
+          <span>{totalStorageGB} GB total</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
@@ -277,7 +328,7 @@ export default function DocumentsAndImages() {
             style={{ width: `${usedPercent > 0 ? Math.max(usedPercent, 1) : 0.5}%` }}
           />
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">{usedGB.toFixed(2)} GB used of {TOTAL_STORAGE_GB} GB</p>
+        <p className="text-xs text-gray-400 mt-1.5">{usedGB.toFixed(2)} GB used of {totalStorageGB} GB</p>
       </div>
 
       {/* ── File List ── */}
@@ -374,10 +425,10 @@ export default function DocumentsAndImages() {
       {/* ── Order Storage Modal ── */}
       {showStorageModal && (
         <OrderStorageModal
-          currentGB={TOTAL_STORAGE_GB}
+          currentGB={totalStorageGB}
           usedGB={usedGB}
           onClose={() => setShowStorageModal(false)}
-          onPurchaseAlert={(msg) => setAlertMessage(msg)}
+          onPurchase={handlePurchaseStorage}
         />
       )}
 

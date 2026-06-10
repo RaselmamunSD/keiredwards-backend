@@ -9,10 +9,11 @@
 // 4. FIXED textarea: soft rounded corners (rounded-xl) to match rest of app
 // 5. FIXED Template Variables info box at bottom — styled to match design reference
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CiEdit } from "react-icons/ci";
 import { IoMdSave } from "react-icons/io";
 import { MdOutlineEmail } from "react-icons/md";
+import { api } from "@/lib/api";
 
 const DEFAULT_TEMPLATE = `Dear <Name>,
 
@@ -33,17 +34,35 @@ export default function EmailToRecipients() {
   const [draft, setDraft] = useState(template);
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.getEmailTemplate();
+        setTemplate(res.data.template);
+        setDraft(res.data.template);
+      } catch (err) {
+        console.error("Failed to load email template", err);
+      }
+    };
+    void load();
+  }, []);
+
   const handleEdit = () => {
     setDraft(template);
     setIsEditing(true);
     setSaved(false);
   };
 
-  const handleSave = () => {
-    setTemplate(draft);
-    setIsEditing(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    try {
+      const res = await api.saveEmailTemplate({ template: draft });
+      setTemplate(res.data.template);
+      setIsEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Failed to save email template", err);
+    }
   };
 
   const handleCancel = () => {
