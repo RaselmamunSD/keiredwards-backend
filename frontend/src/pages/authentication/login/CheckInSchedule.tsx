@@ -31,7 +31,7 @@ function Toast({ message, type = "success" }: { message: string; type?: "success
   );
 }
 
-export default function CheckInSchedule() {
+export default function CheckInSchedule({ onRefresh }: { onRefresh?: () => void }) {
   const [purchasedPlan, setPurchasedPlan] = useState("Weekly");
   const [renewalDate, setRenewalDate] = useState("03/23/2026");
 
@@ -97,6 +97,7 @@ export default function CheckInSchedule() {
       setSavedConfig(mapped);
       setIsDirty(false);
       showToast("Schedule configuration saved successfully.");
+      if (onRefresh) onRefresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to save schedule configuration.", "warning");
     }
@@ -113,6 +114,7 @@ export default function CheckInSchedule() {
         res.data.paused ? "Service paused. Remember to resume when ready." : "Service resumed. Check-in requirements are active.",
         res.data.paused ? "warning" : "success"
       );
+      if (onRefresh) onRefresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to toggle pause status.", "warning");
     }
@@ -135,6 +137,7 @@ export default function CheckInSchedule() {
       setPurchasedPlan(data.purchased_plan);
       setRenewalDate(data.renewal_date);
       showToast("Check-In plan renewed successfully!");
+      if (onRefresh) onRefresh();
     } catch (err) {
       console.error("Failed to renew plan", err);
       showToast("Failed to renew plan. Please try again.", "warning");

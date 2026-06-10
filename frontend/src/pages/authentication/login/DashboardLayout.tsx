@@ -34,35 +34,36 @@ export default function DashboardLayout() {
     }
   }, [authLoading, isLoggedIn, router]);
 
+  const loadDashboardData = async () => {
+    try {
+      const [summaryRes, analyticsRes, scheduleRes, accountingRes] = await Promise.all([
+        api.dashboardSummary(),
+        api.dashboardAnalytics(30),
+        api.getCheckInSchedule(),
+        api.getSetupAccounting(),
+      ]);
+      setSummary(summaryRes.data);
+      setAnalytics(analyticsRes.data.status_breakdown);
+
+      const history = accountingRes.data.history;
+      if (history && history.length > 0) {
+        setLastCheckIn(`${history[0].date} ${history[0].time}`);
+      } else {
+        setLastCheckIn("No check-ins yet");
+      }
+
+      setNextDue(scheduleRes.data.renewal_date);
+      setCheckInStatus(scheduleRes.data.paused ? "PAUSED" : "CHECK-IN OK");
+    } catch (err) {
+      console.error("Failed to load dashboard summary metrics", err);
+      setSummary(null);
+      setAnalytics(null);
+    }
+  };
+
   useEffect(() => {
     if (!isLoggedIn) return;
-    const load = async () => {
-      try {
-        const [summaryRes, analyticsRes, scheduleRes, accountingRes] = await Promise.all([
-          api.dashboardSummary(),
-          api.dashboardAnalytics(30),
-          api.getCheckInSchedule(),
-          api.getSetupAccounting(),
-        ]);
-        setSummary(summaryRes.data);
-        setAnalytics(analyticsRes.data.status_breakdown);
-
-        const history = accountingRes.data.history;
-        if (history && history.length > 0) {
-          setLastCheckIn(`${history[0].date} ${history[0].time}`);
-        } else {
-          setLastCheckIn("No check-ins yet");
-        }
-
-        setNextDue(scheduleRes.data.renewal_date);
-        setCheckInStatus(scheduleRes.data.paused ? "PAUSED" : "CHECK-IN OK");
-      } catch (err) {
-        console.error("Failed to load dashboard summary metrics", err);
-        setSummary(null);
-        setAnalytics(null);
-      }
-    };
-    void load();
+    void loadDashboardData();
   }, [isLoggedIn]);
 
   if (authLoading || !isLoggedIn) {
@@ -195,12 +196,12 @@ export default function DashboardLayout() {
           </div>
         )}
         {activeTab === "check-in-email"       && <CheckInEmail userEmail={user?.email || "mycurrent@email.com"} />}
-        {activeTab === "check-in-schedule"    && <CheckInSchedule />}
+        {activeTab === "check-in-schedule"    && <CheckInSchedule onRefresh={loadDashboardData} />}
         {activeTab === "trusted-recipients"   && <TrustedRecipients userEmail={user?.email || "mycurrent@email.com"} />}
         {activeTab === "email-to-recipients"  && <EmailToRecipients />}
         {activeTab === "press-release"        && <PressRelease />}
         {activeTab === "documents-and-images" && <DocumentsAndImages />}
-        {activeTab === "setup-accounting"     && <SetupAccounting />}
+        {activeTab === "setup-accounting"     && <SetupAccounting onRefresh={loadDashboardData} />}
       </div>
 
     </div>

@@ -983,7 +983,7 @@ function CancelContent() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function SetupAccounting() {
+export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void }) {
   const [data, setData] = useState<{
     config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
     services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
@@ -1000,6 +1000,9 @@ export default function SetupAccounting() {
     try {
       const res = await api.getSetupAccounting();
       setData(res.data);
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (err) {
       console.error("Failed to load setup and accounting data", err);
     }
@@ -1018,6 +1021,9 @@ export default function SetupAccounting() {
         two_fa_email: emailVal,
       });
       setData(res.data);
+      if (onRefresh) {
+        onRefresh();
+      }
       return true;
     } catch (err) {
       console.error("Failed to update 2FA", err);
@@ -1031,6 +1037,9 @@ export default function SetupAccounting() {
         purchase_service: serviceName,
       });
       setData(res.data);
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (err) {
       console.error("Failed to purchase service", err);
     }
@@ -1042,6 +1051,9 @@ export default function SetupAccounting() {
         renew_services: serviceNames,
       });
       setData(res.data);
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (err) {
       console.error("Failed to renew services", err);
     }
