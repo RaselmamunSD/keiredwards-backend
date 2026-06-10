@@ -375,6 +375,13 @@ class SetupAccountingConfigView(APIView):
                 description=f"Purchase: {purchase_service}",
                 amount="$39.00"
             )
+            import uuid
+            Payment.objects.create(
+                user=request.user,
+                amount=39.00,
+                transaction_id=f"TXN-{uuid.uuid4().hex[:12].upper()}",
+                status=Payment.PaymentStatus.COMPLETED
+            )
 
         purchase_services = request.data.get("purchase_services")
         if purchase_services:
@@ -388,14 +395,23 @@ class SetupAccountingConfigView(APIView):
                     config.save()
 
                 price = "$39.00"
+                price_val = 39.00
                 if sname == "Press Release":
                     price = "$250.00"
+                    price_val = 250.00
 
                 BillingRecord.objects.create(
                     user=request.user,
                     date="06/11/2026",
                     description=f"Purchase: {sname}",
                     amount=price
+                )
+                import uuid
+                Payment.objects.create(
+                    user=request.user,
+                    amount=price_val,
+                    transaction_id=f"TXN-{uuid.uuid4().hex[:12].upper()}",
+                    status=Payment.PaymentStatus.COMPLETED
                 )
 
         extra_storage_gb = request.data.get("extra_storage_gb")
@@ -413,6 +429,13 @@ class SetupAccountingConfigView(APIView):
                     date="06/11/2026",
                     description=f"Storage: {gb} GB Extra",
                     amount=f"${gb * 15}.00"
+                )
+                import uuid
+                Payment.objects.create(
+                    user=request.user,
+                    amount=gb * 15,
+                    transaction_id=f"TXN-{uuid.uuid4().hex[:12].upper()}",
+                    status=Payment.PaymentStatus.COMPLETED
                 )
             except ValueError:
                 pass
@@ -435,6 +458,13 @@ class SetupAccountingConfigView(APIView):
                 description=f"Main Service: {check_in_service}",
                 amount="$91.00"
             )
+            import uuid
+            Payment.objects.create(
+                user=request.user,
+                amount=91.00,
+                transaction_id=f"TXN-{uuid.uuid4().hex[:12].upper()}",
+                status=Payment.PaymentStatus.COMPLETED
+            )
 
         renew_services = request.data.get("renew_services")
         if renew_services:
@@ -451,6 +481,13 @@ class SetupAccountingConfigView(APIView):
                     date="06/11/2026",
                     description=f"Renewal: {sname}",
                     amount="$29.99"
+                )
+                import uuid
+                Payment.objects.create(
+                    user=request.user,
+                    amount=29.99,
+                    transaction_id=f"TXN-{uuid.uuid4().hex[:12].upper()}",
+                    status=Payment.PaymentStatus.COMPLETED
                 )
 
         services = ActiveService.objects.filter(user=request.user)
