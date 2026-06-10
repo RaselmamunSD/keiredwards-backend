@@ -91,9 +91,10 @@ async function rawRequest<T>(
   body?: unknown,
   token?: string
 ): Promise<ApiEnvelope<T>> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = {};
+  if (!(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -101,7 +102,7 @@ async function rawRequest<T>(
   const response = await fetch(`${API_URL}/api/v1/${endpoint}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
   });
 
   let payload: ApiEnvelope<T> & ApiErrorBody;
@@ -340,5 +341,18 @@ export const api = {
       billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
       history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
     }>("dashboard/setup-accounting/", "POST", payload),
+  passwordChange: (payload: { old_password: string; new_password: string; new_password_confirm: string }) =>
+    authorizedRequest<{}>("auth/password/change/", "POST", payload),
+  profileUpdate: (payload: Partial<{ username: string; first_name: string; last_name: string; phone: string; bio: string }>) => {
+    // Send as FormData because ProfileUpdateView uses MultiPartParser/FormParser
+    const formData = new FormData();
+    for (const [key, val] of Object.entries(payload)) {
+      if (val !== undefined && val !== null) {
+        formData.append(key, val as string);
+      }
+    }
+    return authorizedRequest<{}>("auth/profile/update/", "PUT", formData);
+  },
 };
+
 

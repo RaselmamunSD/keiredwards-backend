@@ -217,15 +217,16 @@ function PasswordStrengthIndicator({ password }: { password: string }) {
 
 // ─── Login Content ────────────────────────────────────────────────────────────
 
-function LoginContent({ userEmail }: { userEmail: string }) {
+function LoginContent({ userEmail, onSuccess }: { userEmail: string; onSuccess?: () => void }) {
   type LoginMode = "changeUser" | "resetPassword";
   const [mode, setMode] = useState<LoginMode>("changeUser");
   const [form, setForm] = useState({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" });
   const [errors, setErrors] = useState<AnyErrors>({});
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
   const setField = (key: string, val: string) => { setForm(p => ({ ...p, [key]: val })); setErrors(p => ({ ...p, [key]: undefined })); };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const data = mode === "changeUser"
       ? { currentPassword: form.currentPassword, newUsername: form.newUsername }
       : { currentPassword: form.currentPassword, newPassword: form.newPassword, confirmPassword: form.confirmPassword };
@@ -237,9 +238,36 @@ function LoginContent({ userEmail }: { userEmail: string }) {
       return;
     }
     setErrors({});
-    setForm({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" });
-    setSuccess(mode === "changeUser" ? "Email updated successfully." : "Password updated successfully.");
-    setTimeout(() => setSuccess(""), 3000);
+    setLoading(true);
+    try {
+      if (mode === "changeUser") {
+        // Update user profile login email (username)
+        await api.profileUpdate({ username: form.newUsername });
+        // Also update 2FA email config in setup-accounting config
+        await api.updateSetupAccounting({ two_fa_email: form.newUsername });
+        setSuccess("Email updated successfully.");
+      } else {
+        // Update password
+        await api.passwordChange({
+          old_password: form.currentPassword,
+          new_password: form.newPassword,
+          new_password_confirm: form.confirmPassword,
+        });
+        setSuccess("Password updated successfully.");
+      }
+      setForm({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" });
+      if (onSuccess) {
+        onSuccess();
+      }
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setErrors({
+        currentPassword: err?.message || "Operation failed. Please check your credentials."
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -331,8 +359,8 @@ function LoginContent({ userEmail }: { userEmail: string }) {
         <p>The system will continue to function normally and you will still receive check-in emails, but you will <strong>not</strong> be able to change your email address, login credentials, or any other account settings.</p>
       </WarningBox>
 
-      <button onClick={handleSave} className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-6 py-2.5 rounded-lg transition-colors">
-        CONFIRM AND SAVE
+      <button onClick={handleSave} disabled={loading} className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-6 py-2.5 rounded-lg transition-colors disabled:bg-gray-400">
+        {loading ? "SAVING..." : "CONFIRM AND SAVE"}
       </button>
     </div>
   );
@@ -513,7 +541,7 @@ function ActiveServicesContent({ services: initialServices, onPurchase, onRenew 
 
 // ─── New Orders ───────────────────────────────────────────────────────────────
 
-function NewOrdersContent() {
+function NewOrdersContent({ onSuccess }: { onSuccess?: () => void }) {
   const [step, setStep] = useState<NewOrderStep>("addons");
   const [addons, setAddons] = useState<NewOrderAddons>({ privateEmail: false, twoFA: false });
   const [deliveryChoice, setDeliveryChoice] = useState<"trusted" | "press" | "">("");
@@ -522,6 +550,49 @@ function NewOrdersContent() {
   });
   const [payment, setPayment] = useState<NewOrderPayment>({ extraStorageGB: 3, checkInService: "", checkInTerm: "" });
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handlePayNow = async () => {
+    const servicesToPurchase: string[] = [];
+    if (addons.privateEmail) {
+      servicesToPurchase.push("Private Email");
+    }
+    if (addons.twoFA) {
+      servicesToPurchase.push("Two-Factor Authentication");
+    }
+    if (deliveryChoice === "press") {
+      servicesToPurchase.push("Press Release");
+    }
+
+    setLoading(true);
+    try {
+      const payload: any = {};
+      if (servicesToPurchase.length > 0) {
+        payload.purchase_services = servicesToPurchase;
+      }
+      if (payment.extraStorageGB > 0) {
+        payload.extra_storage_gb = payment.extraStorageGB;
+      }
+      if (payment.checkInService) {
+        payload.check_in_service = payment.checkInService;
+      }
+
+      await api.updateSetupAccounting(payload);
+      setOrderSuccess(true);
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err) {
+      console.error("Order failed", err);
+      Swal.fire({
+        title: "Order Failed",
+        text: "There was an error processing your order. Please try again.",
+        icon: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (step === "addons") {
     return (
@@ -758,10 +829,11 @@ function NewOrdersContent() {
             <div className="text-lg font-black">${total}</div>
           </div>
           <button
-            onClick={() => setOrderSuccess(true)}
-            className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors"
+            onClick={handlePayNow}
+            disabled={loading}
+            className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors disabled:bg-gray-400"
           >
-            PAY NOW
+            {loading ? "PROCESSING..." : "PAY NOW"}
           </button>
         </div>
       </div>
@@ -1006,7 +1078,7 @@ export default function SetupAccounting() {
       <SectionWrapper>
         <SectionHeader title="Setup" />
         <AccordionRow label="Login" expanded={open.login} onToggle={() => toggle("login")} />
-        {open.login && <AccordionContent><LoginContent userEmail={data.config.two_fa_email || "user@example.com"} /></AccordionContent>}
+        {open.login && <AccordionContent><LoginContent userEmail={data.config.two_fa_email || "user@example.com"} onSuccess={loadData} /></AccordionContent>}
 
         <AccordionRow
           label="Login Security (2FA)"
@@ -1041,7 +1113,7 @@ export default function SetupAccounting() {
           </AccordionContent>
         )}
         <AccordionRow label="New Orders" expanded={open.newOrders} onToggle={() => toggle("newOrders")} />
-        {open.newOrders && <AccordionContent><NewOrdersContent /></AccordionContent>}
+        {open.newOrders && <AccordionContent><NewOrdersContent onSuccess={loadData} /></AccordionContent>}
         <AccordionRow label="Billing History" expanded={open.billingHistory} onToggle={() => toggle("billingHistory")} />
         {open.billingHistory && <AccordionContent><BillingHistoryContent billing={data.billing} /></AccordionContent>}
       </SectionWrapper>

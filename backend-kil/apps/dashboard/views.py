@@ -302,7 +302,7 @@ class SetupAccountingConfigView(APIView):
     def get(self, request):
         config, created = SetupAccountingConfig.objects.get_or_create(
             user=request.user,
-            defaults={"two_fa_email": request.user.email}
+            defaults={"two_fa_email": request.user.email, "has_two_fa": False}
         )
 
         if created:
@@ -320,6 +320,17 @@ class SetupAccountingConfigView(APIView):
             CheckInHistoryRecord.objects.create(user=request.user, date="02/24/2026", time="09:15 AM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
             CheckInHistoryRecord.objects.create(user=request.user, date="02/17/2026", time="02:30 PM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
             CheckInHistoryRecord.objects.create(user=request.user, date="02/10/2026", time="11:45 AM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
+
+        # Sync has_two_fa with the active service
+        two_fa_service = ActiveService.objects.filter(user=request.user, name="Two-Factor Authentication").first()
+        if two_fa_service:
+            if config.has_two_fa != two_fa_service.is_purchased:
+                config.has_two_fa = two_fa_service.is_purchased
+                config.save()
+        else:
+            if config.has_two_fa:
+                config.has_two_fa = False
+                config.save()
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
@@ -355,11 +366,69 @@ class SetupAccountingConfigView(APIView):
                 is_purchased=True,
                 active_until="March 7, 2027"
             )
+            if purchase_service == "Two-Factor Authentication":
+                config.has_two_fa = True
+                config.save()
             BillingRecord.objects.create(
                 user=request.user,
                 date="06/11/2026",
                 description=f"Purchase: {purchase_service}",
                 amount="$39.00"
+            )
+
+        purchase_services = request.data.get("purchase_services")
+        if purchase_services:
+            for sname in purchase_services:
+                ActiveService.objects.filter(user=request.user, name=sname).update(
+                    is_purchased=True,
+                    active_until="March 7, 2027"
+                )
+                if sname == "Two-Factor Authentication":
+                    config.has_two_fa = True
+                    config.save()
+
+                price = "$39.00"
+                if sname == "Press Release":
+                    price = "$250.00"
+
+                BillingRecord.objects.create(
+                    user=request.user,
+                    date="06/11/2026",
+                    description=f"Purchase: {sname}",
+                    amount=price
+                )
+
+        extra_storage_gb = request.data.get("extra_storage_gb")
+        if extra_storage_gb is not None:
+            try:
+                gb = int(extra_storage_gb)
+                total_storage = 5 + gb
+                ActiveService.objects.filter(user=request.user, name="Additional Storage").update(
+                    additional_info=f"{total_storage} GB",
+                    is_purchased=True,
+                    active_until="March 7, 2027"
+                )
+                BillingRecord.objects.create(
+                    user=request.user,
+                    date="06/11/2026",
+                    description=f"Storage: {gb} GB Extra",
+                    amount=f"${gb * 15}.00"
+                )
+            except ValueError:
+                pass
+
+        check_in_service = request.data.get("check_in_service")
+        if check_in_service:
+            ActiveService.objects.filter(user=request.user, name="I Was Killed For This Information").update(
+                additional_info=check_in_service,
+                is_purchased=True,
+                active_until="March 7, 2027"
+            )
+            BillingRecord.objects.create(
+                user=request.user,
+                date="06/11/2026",
+                description=f"Main Service: {check_in_service}",
+                amount="$91.00"
             )
 
         renew_services = request.data.get("renew_services")
