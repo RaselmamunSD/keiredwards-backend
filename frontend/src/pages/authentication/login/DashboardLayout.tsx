@@ -13,16 +13,8 @@ import PressRelease from "./PressRelease";
 import DocumentsAndImages from "./DocumentsAndImages";
 import SetupAccounting from "./SetupAccounting";
 
-// Mock user — replace with real session data in production
-const MOCK_USER = {
-  email: "mycurrent@email.com",
-  lastCheckIn: "02/24/2026 09:15 AM",
-  nextDue: "03/03/2026",
-  status: "CHECK-IN OK" as const,
-};
-
 export default function DashboardLayout() {
-  const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const { isLoggedIn, isLoading: authLoading, user } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("check-in-email");
@@ -31,6 +23,10 @@ export default function DashboardLayout() {
     completed_payment_amount: number;
   } | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
+
+  const [lastCheckIn, setLastCheckIn] = useState("02/24/2026 09:15 AM");
+  const [nextDue, setNextDue] = useState("03/03/2026");
+  const [checkInStatus, setCheckInStatus] = useState("CHECK-IN OK");
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) {
@@ -42,13 +38,26 @@ export default function DashboardLayout() {
     if (!isLoggedIn) return;
     const load = async () => {
       try {
-        const [summaryRes, analyticsRes] = await Promise.all([
+        const [summaryRes, analyticsRes, scheduleRes, accountingRes] = await Promise.all([
           api.dashboardSummary(),
           api.dashboardAnalytics(30),
+          api.getCheckInSchedule(),
+          api.getSetupAccounting(),
         ]);
         setSummary(summaryRes.data);
         setAnalytics(analyticsRes.data.status_breakdown);
-      } catch {
+
+        const history = accountingRes.data.history;
+        if (history && history.length > 0) {
+          setLastCheckIn(`${history[0].date} ${history[0].time}`);
+        } else {
+          setLastCheckIn("No check-ins yet");
+        }
+
+        setNextDue(scheduleRes.data.renewal_date);
+        setCheckInStatus(scheduleRes.data.paused ? "PAUSED" : "CHECK-IN OK");
+      } catch (err) {
+        console.error("Failed to load dashboard summary metrics", err);
         setSummary(null);
         setAnalytics(null);
       }
@@ -95,20 +104,22 @@ export default function DashboardLayout() {
             </h1>
           </div>
 
-          {/* Right: CHECK-IN OK badge + last/next dates */}
+          {/* Right: CHECK-IN OK / PAUSED badge + last/next dates */}
           <div className="flex items-center gap-3 ml-auto">
-            <span className="flex items-center gap-1.5 bg-green-500 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-full tracking-widest uppercase whitespace-nowrap">
+            <span className={`flex items-center gap-1.5 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-full tracking-widest uppercase whitespace-nowrap ${
+              checkInStatus === "CHECK-IN OK" ? "bg-green-500" : "bg-yellow-500"
+            }`}>
               <span className="w-2 h-2 rounded-full bg-white inline-block shrink-0" />
-              {MOCK_USER.status}
+              {checkInStatus}
             </span>
             <div className="text-gray-500 text-xs leading-5 font-mono text-right">
               <div>
                 Last check-in:{" "}
-                <span className="font-bold text-gray-900">{MOCK_USER.lastCheckIn}</span>
+                <span className="font-bold text-gray-900">{lastCheckIn}</span>
               </div>
               <div>
                 Next due:{" "}
-                <span className="font-bold text-gray-900">{MOCK_USER.nextDue}</span>
+                <span className="font-bold text-gray-900">{nextDue}</span>
               </div>
               {summary && (
                 <div>
@@ -183,9 +194,9 @@ export default function DashboardLayout() {
             <span>Failed: {analytics.failed ?? 0}</span>
           </div>
         )}
-        {activeTab === "check-in-email"       && <CheckInEmail userEmail={MOCK_USER.email} />}
+        {activeTab === "check-in-email"       && <CheckInEmail userEmail={user?.email || "mycurrent@email.com"} />}
         {activeTab === "check-in-schedule"    && <CheckInSchedule />}
-        {activeTab === "trusted-recipients"   && <TrustedRecipients userEmail={MOCK_USER.email} />}
+        {activeTab === "trusted-recipients"   && <TrustedRecipients userEmail={user?.email || "mycurrent@email.com"} />}
         {activeTab === "email-to-recipients"  && <EmailToRecipients />}
         {activeTab === "press-release"        && <PressRelease />}
         {activeTab === "documents-and-images" && <DocumentsAndImages />}
