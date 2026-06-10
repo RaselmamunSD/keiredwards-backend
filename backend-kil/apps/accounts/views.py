@@ -51,7 +51,10 @@ class LoginView(APIView):
                 from django.contrib.auth import get_user_model
 
                 User = get_user_model()
-                user = User.objects.filter(username=username).first()
+                if "@" in username:
+                    user = User.objects.filter(email=username).first()
+                else:
+                    user = User.objects.filter(username=username).first()
 
             if user:
                 AuthAuditLog.objects.create(
