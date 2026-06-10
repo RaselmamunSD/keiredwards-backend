@@ -89,6 +89,35 @@ class LoginView(APIView):
                 ip_address=request.META.get("REMOTE_ADDR"),
                 user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
             )
+            try:
+                from apps.dashboard.models import CheckInHistoryRecord
+                from django.utils import timezone
+                now = timezone.localtime(timezone.now())
+                
+                ua = request.META.get("HTTP_USER_AGENT", "").lower()
+                if "windows" in ua:
+                    device_os = "Windows"
+                elif "macintosh" in ua or "mac os" in ua:
+                    device_os = "macOS"
+                elif "iphone" in ua or "ipad" in ua:
+                    device_os = "iOS"
+                elif "android" in ua:
+                    device_os = "Android"
+                elif "linux" in ua:
+                    device_os = "Linux"
+                else:
+                    device_os = "Unknown"
+                
+                CheckInHistoryRecord.objects.create(
+                    user=user,
+                    date=now.strftime("%m/%d/%Y"),
+                    time=now.strftime("%I:%M %p"),
+                    ip=request.META.get("REMOTE_ADDR") or "127.0.0.1",
+                    login_name=user.email or user.username,
+                    device_os=device_os
+                )
+            except Exception:
+                pass
 
         return success_response(
             "Login successful.",

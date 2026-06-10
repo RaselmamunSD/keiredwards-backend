@@ -183,6 +183,7 @@ export const api = {
       first_name: string;
       last_name: string;
       phone: string;
+      date_joined?: string;
     }>("auth/profile/", "GET"),
   paymentsCreate: (payload: { amount: number; currency: string; metadata?: Record<string, unknown> }) =>
     authorizedRequest<{ checkout_url: string; payment: { gateway_reference: string } }>(

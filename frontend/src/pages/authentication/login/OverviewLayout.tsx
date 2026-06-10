@@ -215,11 +215,12 @@ export default function OverviewLayout() {
     if (!isLoggedIn) return;
     const load = async () => {
       try {
-        const [accountingRes, scheduleRes, emailRes, vaultRes] = await Promise.all([
+        const [accountingRes, scheduleRes, emailRes, vaultRes, profileRes] = await Promise.all([
           api.getSetupAccounting(),
           api.getCheckInSchedule(),
           api.getCheckInEmailConfig(),
           api.getVaultFiles(),
+          api.profile(),
         ]);
 
         const history = accountingRes.data.history;
@@ -288,7 +289,20 @@ export default function OverviewLayout() {
           }
         });
 
-        const startedDate = "03/07/2025";
+        let startedDate = "03/07/2025";
+        if (profileRes.data.date_joined) {
+          try {
+            const dateObj = new Date(profileRes.data.date_joined);
+            if (!isNaN(dateObj.getTime())) {
+              const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+              const dd = String(dateObj.getDate()).padStart(2, '0');
+              const yyyy = dateObj.getFullYear();
+              startedDate = `${mm}/${dd}/${yyyy}`;
+            }
+          } catch (e) {
+            console.error("Error parsing date_joined", e);
+          }
+        }
 
         setData({
           lastLogin: lastLoginStr,

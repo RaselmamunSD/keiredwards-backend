@@ -26,8 +26,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "avatar",
             "bio",
             "is_verified",
+            "date_joined",
         )
-        read_only_fields = ("id", "email", "is_verified")
+        read_only_fields = ("id", "email", "is_verified", "date_joined")
 
 
 class RegisterSerializer(serializers.ModelSerializer):

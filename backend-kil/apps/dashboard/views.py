@@ -334,7 +334,7 @@ class SetupAccountingConfigView(APIView):
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
-        history = CheckInHistoryRecord.objects.filter(user=request.user)
+        history = CheckInHistoryRecord.objects.filter(user=request.user).order_by("-id")
 
         return success_response(
             "Setup & Accounting fetched successfully.",
@@ -492,7 +492,7 @@ class SetupAccountingConfigView(APIView):
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
-        history = CheckInHistoryRecord.objects.filter(user=request.user)
+        history = CheckInHistoryRecord.objects.filter(user=request.user).order_by("-id")
 
         return success_response(
             "Setup & Accounting updated successfully.",
