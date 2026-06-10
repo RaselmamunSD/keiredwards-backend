@@ -334,7 +334,14 @@ class SetupAccountingConfigView(APIView):
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
-        history = CheckInHistoryRecord.objects.filter(user=request.user).order_by("-id")
+        from datetime import datetime
+        history = list(CheckInHistoryRecord.objects.filter(user=request.user))
+        def parse_dt(record):
+            try:
+                return datetime.strptime(f"{record.date} {record.time}", "%m/%d/%Y %I:%M %p")
+            except Exception:
+                return datetime.min
+        history.sort(key=parse_dt, reverse=True)
 
         return success_response(
             "Setup & Accounting fetched successfully.",
@@ -492,7 +499,14 @@ class SetupAccountingConfigView(APIView):
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
-        history = CheckInHistoryRecord.objects.filter(user=request.user).order_by("-id")
+        from datetime import datetime
+        history = list(CheckInHistoryRecord.objects.filter(user=request.user))
+        def parse_dt(record):
+            try:
+                return datetime.strptime(f"{record.date} {record.time}", "%m/%d/%Y %I:%M %p")
+            except Exception:
+                return datetime.min
+        history.sort(key=parse_dt, reverse=True)
 
         return success_response(
             "Setup & Accounting updated successfully.",
