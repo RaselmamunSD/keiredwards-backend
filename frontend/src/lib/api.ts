@@ -208,4 +208,36 @@ export const api = {
       status_breakdown: Record<string, number>;
       daily_completed_amount: Array<{ day: string; amount: number }>;
     }>(`dashboard/analytics/?days=${days}`, "GET"),
+  getCheckInEmailConfig: () =>
+    authorizedRequest<{
+      id: number;
+      checkin_email: string;
+      checkin_password: string;
+      checkin_password_enabled: boolean;
+      private_email_username: string;
+      private_email_address_saved: boolean;
+      private_email_password: string;
+      private_email_password_saved: boolean;
+      updated_at: string;
+      created_at: string;
+    }>("dashboard/checkin-email/", "GET"),
+  saveCheckInEmailConfig: (payload: Partial<{
+    checkin_email: string;
+    checkin_password: string;
+    checkin_password_enabled: boolean;
+    private_email_username: string;
+    private_email_address_saved: boolean;
+    private_email_password: string;
+    private_email_password_saved: boolean;
+  }>) =>
+    authorizedRequest<{
+      id: number;
+      checkin_email: string;
+      checkin_password: string;
+      checkin_password_enabled: boolean;
+      private_email_username: string;
+      private_email_address_saved: boolean;
+      private_email_password: string;
+      private_email_password_saved: boolean;
+    }>("dashboard/checkin-email/", "POST", payload),
 };

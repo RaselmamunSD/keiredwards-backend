@@ -9,8 +9,8 @@ from rest_framework.views import APIView
 from apps.core.responses import success_response
 from apps.payments.models import Payment
 
-from .models import DashboardWidget
-from .serializers import DashboardWidgetSerializer
+from .models import DashboardWidget, CheckInEmailConfig
+from .serializers import DashboardWidgetSerializer, CheckInEmailConfigSerializer
 
 
 class DashboardSummaryView(APIView):
@@ -81,3 +81,25 @@ class DashboardAnalyticsView(APIView):
             },
             status.HTTP_200_OK,
         )
+
+
+class CheckInEmailConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        config, created = CheckInEmailConfig.objects.get_or_create(
+            user=request.user,
+            defaults={"checkin_email": request.user.email}
+        )
+        serializer = CheckInEmailConfigSerializer(config)
+        return success_response("Check-in email config fetched successfully.", serializer.data, status.HTTP_200_OK)
+
+    def post(self, request):
+        config, created = CheckInEmailConfig.objects.get_or_create(
+            user=request.user,
+            defaults={"checkin_email": request.user.email}
+        )
+        serializer = CheckInEmailConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("Check-in email config updated successfully.", serializer.data, status.HTTP_200_OK)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import DashboardWidget
+from .models import DashboardWidget, CheckInEmailConfig
 
 
 @admin.register(DashboardWidget)
@@ -31,3 +31,26 @@ class DashboardWidgetAdmin(admin.ModelAdmin):
             return json.dumps(obj.config, indent=2)
         return "No configuration"
     config_display.short_description = "Configuration"
+
+
+@admin.register(CheckInEmailConfig)
+class CheckInEmailConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "checkin_email",
+        "checkin_password_enabled",
+        "private_email_username",
+        "private_email_address_saved",
+        "private_email_password_saved",
+        "updated_at",
+    )
+    list_filter = ("checkin_password_enabled", "private_email_address_saved", "private_email_password_saved", "updated_at")
+    search_fields = ("user__username", "user__email", "checkin_email", "private_email_username")
+    readonly_fields = ("id", "created_at", "updated_at")
+    fieldsets = (
+        ("User Association", {"fields": ("id", "user")}),
+        ("Check-In Email Config", {"fields": ("checkin_email", "checkin_password", "checkin_password_enabled")}),
+        ("Private Email Config", {"fields": ("private_email_username", "private_email_address_saved", "private_email_password", "private_email_password_saved")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )

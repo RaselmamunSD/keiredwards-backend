@@ -3,8 +3,9 @@
 // Tab 1 — Check-In Email
 // Updated to match client HTML reference exactly
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
+import { api } from "@/lib/api";
 
 interface Props {
   userEmail: string;
@@ -129,19 +130,50 @@ export default function CheckInEmail({ userEmail }: Props) {
   const [toast, setToast] = useState("");
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 4000); };
 
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const response = await api.getCheckInEmailConfig();
+        const data = response.data;
+        if (data) {
+          setEmail(data.checkin_email || userEmail);
+          setCheckinPw(data.checkin_password || "");
+          setCheckinPwSaved(!!data.checkin_password);
+          setCheckinPwEnabled(data.checkin_password_enabled);
+          setPrivateUsername(data.private_email_username || "");
+          setPrivateAddressSaved(data.private_email_address_saved);
+          setPrivatePw(data.private_email_password || "");
+          setPrivatePwSaved(data.private_email_password_saved);
+        }
+      } catch (err) {
+        console.error("Failed to load check-in email config", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void loadConfig();
+  }, [userEmail]);
+
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleChangeEmail = () => {
+  const handleChangeEmail = async () => {
     const result = changeEmailSchema.safeParse({ newEmail, confirmEmail });
     if (!result.success) {
       const flat = result.error.flatten().fieldErrors;
       setEmailErrors({ newEmail: flat.newEmail?.[0], confirmEmail: flat.confirmEmail?.[0] });
       return;
     }
-    setEmail(newEmail);
-    setNewEmail(""); setConfirmEmail(""); setEmailErrors({});
-    setModal(null);
-    showToast("Check-in email updated successfully.");
+    try {
+      await api.saveCheckInEmailConfig({ checkin_email: newEmail });
+      setEmail(newEmail);
+      setNewEmail(""); setConfirmEmail(""); setEmailErrors({});
+      setModal(null);
+      showToast("Check-in email updated successfully.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update check-in email.");
+    }
   };
 
   const handleTestEmail = () => {
@@ -150,41 +182,99 @@ export default function CheckInEmail({ userEmail }: Props) {
     setTimeout(() => setTestEmailVisible(false), 5000);
   };
 
-  const handleSaveCheckinPw = () => {
+  const handleSaveCheckinPw = async () => {
     if (!checkinPw.trim()) {
       setCheckinPwError("Password is required.");
       return;
     }
-    setCheckinPwError("");
-    setCheckinPwSaved(true);
-    showToast("Check-in password saved.");
+    try {
+      await api.saveCheckInEmailConfig({
+        checkin_password: checkinPw,
+        checkin_password_enabled: true
+      });
+      setCheckinPwError("");
+      setCheckinPwSaved(true);
+      showToast("Check-in password saved.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save check-in password.");
+    }
   };
 
-  const handleChangeCheckinPw = () => {
-    setCheckinPw("");
-    setCheckinPwSaved(false);
-    setCheckinPwError("");
+  const handleChangeCheckinPw = async () => {
+    try {
+      await api.saveCheckInEmailConfig({
+        checkin_password: "",
+        checkin_password_enabled: false
+      });
+      setCheckinPw("");
+      setCheckinPwSaved(false);
+      setCheckinPwError("");
+      showToast("Check-in password cleared.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to change check-in password.");
+    }
   };
 
-  const handleSaveAddress = () => {
+  const handleToggleCheckinPw = async () => {
+    const nextVal = !checkinPwEnabled;
+    try {
+      await api.saveCheckInEmailConfig({
+        checkin_password_enabled: nextVal
+      });
+      setCheckinPwEnabled(nextVal);
+      showToast(nextVal ? "Check-in password enabled." : "Check-in password disabled.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update password status.");
+    }
+  };
+
+  const handleSaveAddress = async () => {
     if (!privateUsername.trim() || privateAddressSaved) return;
-    const taken = Math.random() < 0.5;
+    const taken = Math.random() < 0.1;
     if (taken) {
       setEmailUnavailable(true);
       setPrivateUsername("");
     } else {
-      setEmailUnavailable(false);
-      setPrivateAddressSaved(true);
+      try {
+        await api.saveCheckInEmailConfig({
+          private_email_username: privateUsername,
+          private_email_address_saved: true
+        });
+        setEmailUnavailable(false);
+        setPrivateAddressSaved(true);
+        showToast("Private email address saved.");
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to save private email address.");
+      }
     }
   };
 
-  const handleSavePrivatePw = () => {
+  const handleSavePrivatePw = async () => {
     if (!privatePw.trim()) return;
-    setPrivatePwSaved(true);
+    try {
+      await api.saveCheckInEmailConfig({
+        private_email_password: privatePw,
+        private_email_password_saved: true
+      });
+      setPrivatePwSaved(true);
+      showToast("Private email password saved.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save private email password.");
+    }
   };
-  const handleChangePrivatePw = () => {
-    setPrivatePw("");
-    setPrivatePwSaved(false);
+
+  const handleChangePrivatePw = async () => {
+    try {
+      await api.saveCheckInEmailConfig({
+        private_email_password: "",
+        private_email_password_saved: false
+      });
+      setPrivatePw("");
+      setPrivatePwSaved(false);
+      showToast("Private email password cleared.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to change private email password.");
+    }
   };
 
   const handleCopy = (text: string, key: string) => {
@@ -230,6 +320,14 @@ export default function CheckInEmail({ userEmail }: Props) {
   const fullPrivateEmail = privateAddressSaved && privateUsername ? `${privateUsername}@privateemail.com` : null;
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-20 text-gray-500 font-bold">
+        Loading Check-In Email settings...
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto" style={{ padding: "32px 40px", background: "#fff", color: "#111", fontFamily: "'DM Sans', sans-serif" }}>
@@ -358,10 +456,7 @@ export default function CheckInEmail({ userEmail }: Props) {
                 background: checkinPwEnabled ? "#e8281e" : "#22c55e",
                 color: checkinPwEnabled ? "#fff" : "#000"
               }}
-              onClick={() => {
-                setCheckinPwEnabled(v => !v);
-                showToast(checkinPwEnabled ? "Check-in password disabled." : "Check-in password enabled.");
-              }}
+              onClick={handleToggleCheckinPw}
             >
               {checkinPwEnabled ? "Disable Password" : "Enable Password"}
             </button>
