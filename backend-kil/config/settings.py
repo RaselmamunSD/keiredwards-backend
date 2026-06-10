@@ -204,7 +204,11 @@ CELERY_BEAT_SCHEDULE = {
     }
 }
 
-EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+# Use console backend in debug mode if SMTP settings are placeholders to prevent crashes
+if env.bool("DEBUG", default=True) and (env("EMAIL_HOST_USER", default="") in ("", "your@email.com")):
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
