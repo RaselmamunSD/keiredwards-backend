@@ -10,6 +10,7 @@ from .views import (
     PressReleaseConfigView,
     UserVaultFilesView,
     SetupAccountingConfigView,
+    ContactMessageCreateView,
 )
 
 urlpatterns = [
@@ -22,5 +23,6 @@ urlpatterns = [
     path("press-release/", PressReleaseConfigView.as_view(), name="dashboard-press-release"),
     path("vault-files/", UserVaultFilesView.as_view(), name="dashboard-vault-files"),
     path("setup-accounting/", SetupAccountingConfigView.as_view(), name="dashboard-setup-accounting"),
+    path("contact/", ContactMessageCreateView.as_view(), name="dashboard-contact"),
 ]
 

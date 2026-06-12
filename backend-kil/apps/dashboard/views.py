@@ -23,6 +23,7 @@ from .models import (
     ActiveService,
     BillingRecord,
     CheckInHistoryRecord,
+    ContactMessage,
 )
 from .serializers import (
     DashboardWidgetSerializer,
@@ -37,6 +38,7 @@ from .serializers import (
     ActiveServiceSerializer,
     BillingRecordSerializer,
     CheckInHistoryRecordSerializer,
+    ContactMessageSerializer,
 )
 
 
@@ -583,3 +585,18 @@ class SetupAccountingConfigView(APIView):
             },
             status.HTTP_200_OK
         )
+
+
+class ContactMessageCreateView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = ContactMessageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            "Message sent successfully. We will get back to you soon.",
+            serializer.data,
+            status.HTTP_201_CREATED,
+        )
+

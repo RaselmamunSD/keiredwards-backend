@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { api } from "@/lib/api";
 
 // ── Validation Schema ──────────────────────────────────────────────────────
 const contactSchema = z.object({
@@ -32,6 +33,7 @@ const inputClass = (hasError: boolean) =>
 // ── Main Contact Page ──────────────────────────────────────────────────────
 const ContactSection = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const {
     register,
@@ -43,12 +45,23 @@ const ContactSection = () => {
   });
 
   const onSubmit = async (data: ContactFormData) => {
-    // TODO: Replace with your email API / service (e.g. EmailJS, SendGrid, Resend)
-    // Target email: contact@yourcompany.com
-    console.log("Contact Form Submitted:", data);
-    setIsSubmitted(true);
-    reset();
-    setTimeout(() => setIsSubmitted(false), 5000);
+    setSubmitError("");
+    setIsSubmitted(false);
+    try {
+      await api.submitContactMessage({
+        fullName: data.fullName,
+        email: data.email,
+        subject: data.subject,
+        isCustomer: data.isCustomer as "Yes" | "No",
+        message: data.message,
+      });
+      setIsSubmitted(true);
+      reset();
+      setTimeout(() => setIsSubmitted(false), 5000);
+    } catch (err) {
+      console.error(err);
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit message. Please try again.");
+    }
   };
 
   return (
@@ -74,6 +87,15 @@ const ContactSection = () => {
           <div className="border border-green-500/40 bg-green-500/10 rounded-sm px-5 py-4 mb-8">
             <p className="text-green-400 font-medium text-sm">
               ✓ Your message has been sent successfully. We&apos;ll be in touch soon.
+            </p>
+          </div>
+        )}
+
+        {/* ── Error Message ── */}
+        {submitError && (
+          <div className="border border-red-500/40 bg-red-500/10 rounded-sm px-5 py-4 mb-8">
+            <p className="text-red-400 font-medium text-sm">
+              ⚠ {submitError}
             </p>
           </div>
         )}
@@ -137,8 +159,8 @@ const ContactSection = () => {
                 <option value="" disabled className="text-white/30 bg-[#0d1117]">
                   Select an option
                 </option>
-                <option value="yes" className="bg-[#0d1117] text-white">Yes</option>
-                <option value="no" className="bg-[#0d1117] text-white">No</option>
+                <option value="Yes" className="bg-[#0d1117] text-white">Yes</option>
+                <option value="No" className="bg-[#0d1117] text-white">No</option>
                 {/* <option value="not_sure" className="bg-[#0d1117] text-white">Not sure</option> */}
               </select>
               {/* Down Arrow Icon */}

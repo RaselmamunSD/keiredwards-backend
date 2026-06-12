@@ -149,3 +149,21 @@ class CheckInHistoryRecord(models.Model):
 
     def __str__(self):
         return f"{self.user.username} check-in on {self.date} at {self.time}"
+
+
+class ContactMessage(models.Model):
+    full_name = models.CharField(max_length=150, blank=True, help_text="Full name of the submitter")
+    email = models.EmailField(help_text="Email of the submitter")
+    subject = models.CharField(max_length=255, help_text="Subject of the message")
+    is_customer = models.CharField(max_length=10, choices=[("Yes", "Yes"), ("No", "No")], help_text="Is the submitter currently a customer?")
+    message = models.TextField(help_text="The contact message body")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "Contact Message"
+        verbose_name_plural = "Contact Messages"
+
+    def __str__(self):
+        return f"{self.email} - {self.subject}"
+

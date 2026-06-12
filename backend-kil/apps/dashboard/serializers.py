@@ -13,6 +13,7 @@ from .models import (
     ActiveService,
     BillingRecord,
     CheckInHistoryRecord,
+    ContactMessage,
 )
 
 
@@ -109,3 +110,11 @@ class CheckInHistoryRecordSerializer(serializers.ModelSerializer):
         model = CheckInHistoryRecord
         fields = ("id", "date", "time", "ip", "login_name", "device_os")
         read_only_fields = ("id",)
+
+
+class ContactMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessage
+        fields = ("id", "full_name", "email", "subject", "is_customer", "message", "created_at")
+        read_only_fields = ("id", "created_at")
+

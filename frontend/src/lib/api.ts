@@ -362,6 +362,20 @@ export const api = {
     }>("dashboard/setup-accounting/", "POST", payload),
   passwordChange: (payload: { old_password: string; new_password: string; new_password_confirm: string }) =>
     authorizedRequest<{}>("auth/password/change/", "POST", payload),
+  submitContactMessage: (payload: {
+    fullName: string;
+    email: string;
+    subject: string;
+    isCustomer: "Yes" | "No";
+    message: string;
+  }) =>
+    rawRequest<{}>("dashboard/contact/", "POST", {
+      full_name: payload.fullName,
+      email: payload.email,
+      subject: payload.subject,
+      is_customer: payload.isCustomer,
+      message: payload.message,
+    }),
   profileUpdate: (payload: Partial<{ username: string; first_name: string; last_name: string; phone: string; bio: string }>) => {
     // Send as FormData because ProfileUpdateView uses MultiPartParser/FormParser
     const formData = new FormData();

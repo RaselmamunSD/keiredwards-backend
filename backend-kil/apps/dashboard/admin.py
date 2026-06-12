@@ -13,6 +13,7 @@ from .models import (
     ActiveService,
     BillingRecord,
     CheckInHistoryRecord,
+    ContactMessage,
 )
 
 
@@ -141,3 +142,13 @@ class CheckInHistoryRecordAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "date", "time", "ip", "login_name", "device_os")
     list_filter = ("date", "device_os")
     search_fields = ("user__username", "user__email", "login_name", "ip")
+
+
+@admin.register(ContactMessage)
+class ContactMessageAdmin(admin.ModelAdmin):
+    list_display = ("full_name", "email", "subject", "is_customer", "created_at")
+    list_filter = ("is_customer", "created_at")
+    search_fields = ("full_name", "email", "subject", "message")
+    readonly_fields = ("full_name", "email", "subject", "is_customer", "message", "created_at")
+    date_hierarchy = "created_at"
+
