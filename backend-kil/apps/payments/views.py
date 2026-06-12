@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.core.responses import success_response
 
 from .gateway import PapylGatewayClient, PapylGatewayError
-from .models import Payment
+from .models import Payment, CheckInOption, AddOnOption
 from .serializers import PaymentCreateSerializer, PaymentSerializer, PaymentVerifySerializer
 
 
@@ -117,3 +117,44 @@ class PaymentVerifyView(APIView):
             {"payment": PaymentSerializer(payment).data},
             status.HTTP_200_OK,
         )
+
+
+class PricingConfigView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        check_in_options = CheckInOption.objects.all().order_by("price_per_month")
+        add_ons = AddOnOption.objects.all()
+
+        formatted_check_in = [
+            {
+                "key": opt.key,
+                "label": opt.label,
+                "display_label": opt.display_label,
+                "price_per_month": float(opt.price_per_month),
+                "price_1_year": float(opt.price_1_year),
+                "price_2_years": float(opt.price_2_years),
+                "price_3_years": float(opt.price_3_years),
+            }
+            for opt in check_in_options
+        ]
+
+        formatted_addons = [
+            {
+                "key": addon.key,
+                "label": addon.label,
+                "description": addon.description,
+                "price": float(addon.price),
+            }
+            for addon in add_ons
+        ]
+
+        return success_response(
+            "Pricing configurations fetched successfully.",
+            {
+                "check_in_options": formatted_check_in,
+                "add_ons": formatted_addons,
+            },
+            status.HTTP_200_OK,
+        )
+

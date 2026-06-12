@@ -1,7 +1,19 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Payment
+from .models import Payment, CheckInOption, AddOnOption
+
+
+@admin.register(CheckInOption)
+class CheckInOptionAdmin(admin.ModelAdmin):
+    list_display = ("key", "label", "price_per_month", "price_1_year", "price_2_years", "price_3_years")
+    search_fields = ("key", "label")
+
+
+@admin.register(AddOnOption)
+class AddOnOptionAdmin(admin.ModelAdmin):
+    list_display = ("key", "label", "price")
+    search_fields = ("key", "label")
 
 
 @admin.register(Payment)

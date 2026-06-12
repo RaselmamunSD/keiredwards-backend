@@ -197,6 +197,24 @@ export const api = {
       "POST",
       { reference }
     ),
+  getPricingConfig: () =>
+    rawRequest<{
+      check_in_options: Array<{
+        key: string;
+        label: string;
+        display_label: string;
+        price_per_month: number;
+        price_1_year: number;
+        price_2_years: number;
+        price_3_years: number;
+      }>;
+      add_ons: Array<{
+        key: string;
+        label: string;
+        description: string;
+        price: number;
+      }>;
+    }>("payments/pricing/", "GET"),
   dashboardSummary: () =>
     authorizedRequest<{
       total_payments: number;

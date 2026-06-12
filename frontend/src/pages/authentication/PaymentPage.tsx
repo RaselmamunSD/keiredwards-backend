@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -68,19 +68,65 @@ function SuccessScreen({ amount, onDone }: { amount: number; onDone?: () => void
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PaymentPage({
-  amount = 599.88,
-  orderItems = [
-    { label: "Weekly Check-In | 1 Year", price: 359.88 },
-    { label: "Additional Storage 5GB", price: 75.00 },
-    { label: "Press Release", price: 250.00 },
-    { label: "Secured Login (2FA)", price: 39.00 },
-  ],
+  amount: initialAmount,
+  orderItems: initialOrderItems,
   merchantName = "Service Payment",
   onSuccess,
   onCancel,
 }: PaymentPageProps) {
   const router = useRouter();
   const [step, setStep] = useState<"choose" | "email" | "card" | "processing" | "success">("choose");
+  const [amount, setAmount] = useState(599.88);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([
+    { label: "Weekly Check-In | 1 Year", price: 359.88 },
+    { label: "Additional Storage 5GB", price: 75.00 },
+    { label: "Press Release", price: 250.00 },
+    { label: "Secured Login (2FA)", price: 39.00 },
+  ]);
+
+  useEffect(() => {
+    // 1. If props are explicitly passed, use them
+    if (initialAmount !== undefined) {
+      setAmount(initialAmount);
+      if (initialOrderItems) {
+        setOrderItems(initialOrderItems);
+      }
+      return;
+    }
+
+    // 2. Try loading from localStorage
+    const savedAmount = localStorage.getItem("checkout_amount");
+    const savedItems = localStorage.getItem("checkout_order_items");
+    if (savedAmount && savedItems) {
+      try {
+        setAmount(parseFloat(savedAmount));
+        setOrderItems(JSON.parse(savedItems));
+        return;
+      } catch (e) {
+        console.error("Failed to parse saved checkout details:", e);
+      }
+    }
+
+    // 3. Fallback to dynamic loading of default daily option
+    api.getPricingConfig()
+      .then((res) => {
+        const data = res.data;
+        if (data.check_in_options && data.check_in_options.length > 0) {
+          const dailyOpt = data.check_in_options.find(o => o.key === "daily");
+          if (dailyOpt) {
+            const defaultPrice = dailyOpt.price_1_year; // e.g. 995
+            setAmount(defaultPrice);
+            setOrderItems([
+              { label: `${dailyOpt.label} (1 Year)`, price: defaultPrice }
+            ]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch default pricing config:", err);
+      });
+  }, [initialAmount, initialOrderItems]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");

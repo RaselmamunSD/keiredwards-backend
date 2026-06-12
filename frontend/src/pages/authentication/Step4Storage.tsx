@@ -10,8 +10,9 @@
 // 5. Invoice only renders rows for items the user has actually selected (zero rows hidden)
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
+import { api } from "@/lib/api";
 import { SecurityAddons, Step3Data, Step4Data } from "./SignupFlow";
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
@@ -101,18 +102,21 @@ function calcStorageCostPerYear(gb: number): number {
 // ─── Tiered storage breakdown (for invoice label) ─────────────────────────────
 // Returns a human-readable breakdown string, e.g. "10GB×$15 + 5GB×$10"
 
-function storageBreakdownLabel(gb: number): string {
+function storageBreakdownLabel(gb: number, costPerGB: number = 15): string {
   if (gb <= 0) return "";
   const parts: string[] = [];
   const t1 = Math.min(gb, 10);
-  if (t1 > 0) parts.push(`${t1}GB×$15`);
+  const r1 = costPerGB;
+  const r2 = costPerGB * (10 / 15);
+  const r3 = costPerGB * (5 / 15);
+  if (t1 > 0) parts.push(`${t1}GB×$${r1.toFixed(0)}`);
   if (gb > 10) {
     const t2 = Math.min(gb - 10, 39);
-    if (t2 > 0) parts.push(`${t2}GB×$10`);
+    if (t2 > 0) parts.push(`${t2}GB×$${r2.toFixed(0)}`);
   }
   if (gb > 49) {
     const t3 = gb - 49;
-    if (t3 > 0) parts.push(`${t3}GB×$5`);
+    if (t3 > 0) parts.push(`${t3}GB×$${r3.toFixed(0)}`);
   }
   return parts.join(" + ");
 }
@@ -137,7 +141,9 @@ interface PricingBreakdown {
 function computePricing(
   step4: Step4Data,
   addons: SecurityAddons,
-  step3: Step3Data
+  step3: Step3Data,
+  customServicePrices?: Record<string, Record<string, number>> | null,
+  customAddonPrices?: Record<string, number> | null
 ): PricingBreakdown {
   const termYears = parseInt(step4.checkInTerm) || 0;
 
@@ -148,9 +154,10 @@ function computePricing(
 
   // ── Check-In Service ──────────────────────────────────────────────────────
   // Direct flat-price lookup — discount already included in table values
+  const servicePrices = customServicePrices || SERVICE_TERM_PRICES;
   const serviceCost =
     step4.checkInService && step4.checkInTerm
-      ? SERVICE_TERM_PRICES[step4.checkInService]?.[step4.checkInTerm] ?? 0
+      ? servicePrices[step4.checkInService]?.[step4.checkInTerm] ?? 0
       : 0;
 
   const termLabel = termYears > 0 ? `${termYears} Year${termYears > 1 ? "s" : ""}` : "";
@@ -161,7 +168,27 @@ function computePricing(
 
   // ── Storage ───────────────────────────────────────────────────────────────
   // Annual cost × term years, then apply multi-year discount
-  const storageCostPerYear = calcStorageCostPerYear(step4.extraStorageGB);
+  const customStorageRate = customAddonPrices && customAddonPrices['extra_storage'] !== undefined
+    ? customAddonPrices['extra_storage']
+    : 15;
+
+  const localCalcStorageCostPerYear = (gb: number): number => {
+    if (gb <= 0) return 0;
+    let cost = 0;
+    const t1 = Math.min(gb, 10);
+    cost += t1 * customStorageRate;
+    if (gb > 10) {
+      const t2 = Math.min(gb - 10, 39);
+      cost += t2 * (customStorageRate * (10 / 15));
+    }
+    if (gb > 49) {
+      const t3 = gb - 49;
+      cost += t3 * (customStorageRate * (5 / 15));
+    }
+    return cost;
+  };
+
+  const storageCostPerYear = localCalcStorageCostPerYear(step4.extraStorageGB);
   const effectiveYears = Math.max(termYears, 1);
   const storageRawTotal = storageCostPerYear * effectiveYears;
   const storageTotalCost =
@@ -172,17 +199,32 @@ function computePricing(
 
   // ── Press Release ─────────────────────────────────────────────────────────
   // One-time flat fee — no term multiplier, no discount
+  const press250Cost = customAddonPrices && customAddonPrices['press_release_250'] !== undefined
+    ? customAddonPrices['press_release_250']
+    : 250;
+  const press500Cost = customAddonPrices && customAddonPrices['press_release_500'] !== undefined
+    ? customAddonPrices['press_release_500']
+    : 495;
+  const press1000Cost = customAddonPrices && customAddonPrices['press_release_1000'] !== undefined
+    ? customAddonPrices['press_release_1000']
+    : 695;
+
   const pressCost =
-    (step3.pressRelease250  ? 250 : 0) +
-    (step3.pressRelease500  ? 495 : 0) +
-    (step3.pressRelease1000 ? 695 : 0);
+    (step3.pressRelease250  ? press250Cost : 0) +
+    (step3.pressRelease500  ? press500Cost : 0) +
+    (step3.pressRelease1000 ? press1000Cost : 0);
 
   // ── Security Add-ons ──────────────────────────────────────────────────────
   // $39/year × term years, then apply multi-year discount (same as storage)
-  // NOTE: If client wants add-ons at flat $39/yr with NO discount, remove
-  // the discountMultiplier here and just use: 39 * effectiveYears
-  const twoFARaw       = addons.twoFA          ? 39 * effectiveYears : 0;
-  const privateEmailRaw = addons.privateEmail   ? 39 * effectiveYears : 0;
+  const twoFA_rate = customAddonPrices && customAddonPrices['2fa'] !== undefined
+    ? customAddonPrices['2fa']
+    : 39;
+  const privateEmail_rate = customAddonPrices && customAddonPrices['private_email'] !== undefined
+    ? customAddonPrices['private_email']
+    : 39;
+
+  const twoFARaw       = addons.twoFA          ? twoFA_rate * effectiveYears : 0;
+  const privateEmailRaw = addons.privateEmail   ? privateEmail_rate * effectiveYears : 0;
   const twoFACost       = parseFloat((twoFARaw       * discountMultiplier).toFixed(2));
   const privateEmailCost = parseFloat((privateEmailRaw * discountMultiplier).toFixed(2));
 
@@ -310,6 +352,44 @@ export default function Step4Storage({
   const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
+  const [customServicePrices, setCustomServicePrices] = useState<Record<string, Record<string, number>> | null>(null);
+  const [customAddonPrices, setCustomAddonPrices] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api.getPricingConfig()
+      .then((res) => {
+        if (!active) return;
+        const data = res.data;
+        if (data.check_in_options && data.check_in_options.length > 0) {
+          const svcPrices: Record<string, Record<string, number>> = {};
+          data.check_in_options.forEach((opt) => {
+            svcPrices[opt.key] = {
+              "1": opt.price_1_year,
+              "2": opt.price_2_years,
+              "3": opt.price_3_years,
+            };
+          });
+          setCustomServicePrices(svcPrices);
+        }
+        if (data.add_ons && data.add_ons.length > 0) {
+          const addPrices: Record<string, number> = {};
+          data.add_ons.forEach((addon) => {
+            addPrices[addon.key] = addon.price;
+          });
+          setCustomAddonPrices(addPrices);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load dynamic pricing config:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const p = computePricing(data, addons, step3, customServicePrices, customAddonPrices);
+
   const set = <K extends keyof Step4Data>(field: K, value: Step4Data[K]) => {
     const updated = { ...data, [field]: value };
     onChange(updated);
@@ -333,10 +413,15 @@ export default function Step4Storage({
       return;
     }
     setErrors({});
+
+    localStorage.setItem("checkout_amount", p.total.toString());
+    localStorage.setItem("checkout_order_items", JSON.stringify(invoiceRows.map(row => ({
+      label: row.label,
+      price: parseFloat(row.value.replace('$', '').replace(',', ''))
+    }))));
+
     router.push("/payment");
   };
-
-  const p = computePricing(data, addons, step3);
 
   // ── Invoice rows — only include items that cost > 0 ───────────────────────
   const invoiceRows: { label: string; value: string; sub?: string }[] = [];
@@ -350,7 +435,10 @@ export default function Step4Storage({
   }
 
   if (p.storageTotalCost > 0) {
-    const breakdown = storageBreakdownLabel(data.extraStorageGB);
+    const customStorageRate = customAddonPrices && customAddonPrices['extra_storage'] !== undefined
+      ? customAddonPrices['extra_storage']
+      : 15;
+    const breakdown = storageBreakdownLabel(data.extraStorageGB, customStorageRate);
     const effectiveYears = Math.max(p.termYears, 1);
     // Show tiered breakdown + discount info in sub-label
     const sub =

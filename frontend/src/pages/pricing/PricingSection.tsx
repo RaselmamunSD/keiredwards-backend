@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { MdKeyboardArrowDown } from "react-icons/md";
+import { api } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface CheckInOption {
@@ -68,8 +69,45 @@ const ADD_ONS: AddOn[] = [
 
 // ── Component ──────────────────────────────────────────────────────────────
 const PricingSection = () => {
+  const [checkInOptions, setCheckInOptions] = useState<CheckInOption[]>(CHECK_IN_OPTIONS);
+  const [addOns, setAddOns] = useState<AddOn[]>(ADD_ONS);
   const [selectedCheckIn, setSelectedCheckIn] = useState<CheckInOption>(CHECK_IN_OPTIONS[0]);
   const [selectedTerm, setSelectedTerm]       = useState<TermOption>(TERM_OPTIONS[0]);
+
+  useEffect(() => {
+    let active = true;
+    api.getPricingConfig()
+      .then((res) => {
+        if (!active) return;
+        const data = res.data;
+        if (data.check_in_options && data.check_in_options.length > 0) {
+          const mapped = data.check_in_options.map((opt) => ({
+            label: opt.label,
+            displayLabel: opt.display_label,
+            pricePerMonth: opt.price_per_month,
+          }));
+          setCheckInOptions(mapped);
+          setSelectedCheckIn(mapped[0]);
+        }
+        if (data.add_ons && data.add_ons.length > 0) {
+          const filtered = data.add_ons
+            .filter((a) => ["private_email", "2fa", "extra_storage", "press_release"].includes(a.key))
+            .map((addon) => ({
+              id: addon.key,
+              label: addon.label,
+              description: addon.description,
+              pricePerYear: addon.price,
+            }));
+          setAddOns(filtered);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch pricing config from API, using defaults:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Base price = pricePerMonth × 12 × years
   const basePrice = useMemo(
@@ -153,12 +191,12 @@ const PricingSection = () => {
                     <select
                       value={selectedCheckIn.label}
                       onChange={(e) => {
-                        const found = CHECK_IN_OPTIONS.find((o) => o.label === e.target.value);
+                        const found = checkInOptions.find((o) => o.label === e.target.value);
                         if (found) setSelectedCheckIn(found);
                       }}
                       className="w-full bg-[#1c1c1c] border border-white/10 text-white rounded-lg px-4 py-3 text-sm appearance-none cursor-pointer focus:outline-none focus:border-white/25 pr-10"
                     >
-                      {CHECK_IN_OPTIONS.map((opt) => (
+                      {checkInOptions.map((opt) => (
                         <option key={opt.label} value={opt.label}>
                           {opt.displayLabel}
                         </option>
@@ -207,7 +245,7 @@ const PricingSection = () => {
                   Optional Add-Ons
                 </p>
                 <div className="flex flex-col gap-3">
-                  {ADD_ONS.map((addon) => (
+                  {addOns.map((addon) => (
                     <div
                       key={addon.id}
                       className="flex items-center gap-4 p-4 rounded-xl border border-white/8 bg-[#181818]"
