@@ -9,6 +9,66 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
+# ── Optimize Timezone Field Startup on Windows ─────────────────
+# The timezone_field library eagerly loads all IANA timezones (600+)
+# from Python's zoneinfo / tzdata package on startup. On Windows,
+# this causes severe slow downs (or hangs) due to antivirus scanning
+# of hundreds of file reads. We limit the default timezones to a
+# list of common ones to make the server start up instantly.
+try:
+    from timezone_field.backends.zoneinfo import ZoneInfoBackend
+    import zoneinfo
+
+    common_timezones = {
+        "UTC",
+        "Asia/Dhaka",  # Local timezone
+        "America/New_York",
+        "America/Los_Angeles",
+        "America/Chicago",
+        "America/Denver",
+        "America/Phoenix",
+        "America/Anchorage",
+        "America/Honolulu",
+        "America/Toronto",
+        "America/Mexico_City",
+        "America/Sao_Paulo",
+        "Europe/London",
+        "Europe/Paris",
+        "Europe/Berlin",
+        "Europe/Rome",
+        "Europe/Madrid",
+        "Europe/Dublin",
+        "Europe/Moscow",
+        "Europe/Istanbul",
+        "Asia/Kolkata",
+        "Asia/Singapore",
+        "Asia/Tokyo",
+        "Asia/Shanghai",
+        "Asia/Hong_Kong",
+        "Asia/Seoul",
+        "Asia/Jakarta",
+        "Asia/Dubai",
+        "Asia/Karachi",
+        "Asia/Riyadh",
+        "Australia/Sydney",
+        "Australia/Melbourne",
+        "Australia/Perth",
+        "Pacific/Auckland",
+        "Africa/Cairo",
+        "Africa/Johannesburg",
+        "Africa/Nairobi",
+        "Africa/Lagos",
+    }
+    # Only keep timezones that exist in the system's database
+    available_tzs = zoneinfo.available_timezones()
+    valid_timezones = {tz for tz in common_timezones if tz in available_tzs}
+    
+    ZoneInfoBackend.base_tzstrs = valid_timezones
+    ZoneInfoBackend.all_tzstrs = valid_timezones
+except Exception:
+    pass
+
+
 SECRET_KEY = env(
     "SECRET_KEY",
     default="django-insecure-change-me-in-production",
