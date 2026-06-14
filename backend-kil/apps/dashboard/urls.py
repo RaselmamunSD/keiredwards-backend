@@ -9,6 +9,7 @@ from .views import (
     EmailTemplateConfigView,
     PressReleaseConfigView,
     UserVaultFilesView,
+    UserVaultFileDownloadView,
     SetupAccountingConfigView,
     ContactMessageCreateView,
 )
@@ -22,6 +23,7 @@ urlpatterns = [
     path("email-template/", EmailTemplateConfigView.as_view(), name="dashboard-email-template"),
     path("press-release/", PressReleaseConfigView.as_view(), name="dashboard-press-release"),
     path("vault-files/", UserVaultFilesView.as_view(), name="dashboard-vault-files"),
+    path("vault-files/<int:file_id>/download/", UserVaultFileDownloadView.as_view(), name="dashboard-vault-file-download"),
     path("setup-accounting/", SetupAccountingConfigView.as_view(), name="dashboard-setup-accounting"),
     path("contact/", ContactMessageCreateView.as_view(), name="dashboard-contact"),
 ]

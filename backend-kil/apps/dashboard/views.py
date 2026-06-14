@@ -5,8 +5,16 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.views import APIView
-
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.exceptions import ValidationError
+
+import os
+import uuid
+import base64
+import urllib.parse
+from django.conf import settings
+from django.http import HttpResponse
+from .crypto import encrypt_to_b64_strings, decrypt_data
 from apps.core.responses import success_response
 from apps.payments.models import Payment
 
@@ -254,6 +262,7 @@ class PressReleaseConfigView(APIView):
 
 class UserVaultFilesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get(self, request):
         storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
@@ -268,23 +277,115 @@ class UserVaultFilesView(APIView):
         )
 
     def post(self, request):
+        # 1. Update total_storage_gb if provided
         total_storage_gb = request.data.get("total_storage_gb")
         if total_storage_gb:
             storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
-            storage_config.total_storage_gb = total_storage_gb
+            storage_config.total_storage_gb = int(total_storage_gb)
             storage_config.save()
 
-        files_data = request.data.get("files")
-        if files_data is not None:
+        # 2. Get existing files to keep
+        existing_ids = []
+        raw_existing = request.data.getlist("existing_files") or request.data.get("existing_files")
+        
+        if raw_existing:
+            if isinstance(raw_existing, list):
+                for item in raw_existing:
+                    try:
+                        import json
+                        parsed = json.loads(item)
+                        if isinstance(parsed, dict) and "id" in parsed:
+                            existing_ids.append(int(parsed["id"]))
+                        elif isinstance(parsed, list):
+                            for p in parsed:
+                                if isinstance(p, dict) and "id" in p:
+                                    existing_ids.append(int(p["id"]))
+                                else:
+                                    existing_ids.append(int(p))
+                        else:
+                            existing_ids.append(int(parsed))
+                    except (ValueError, json.JSONDecodeError):
+                        try:
+                            existing_ids.append(int(item))
+                        except ValueError:
+                            pass
+            else:
+                try:
+                    import json
+                    parsed = json.loads(raw_existing)
+                    if isinstance(parsed, list):
+                        for p in parsed:
+                            if isinstance(p, dict) and "id" in p:
+                                existing_ids.append(int(p["id"]))
+                            else:
+                                existing_ids.append(int(p))
+                    elif isinstance(parsed, dict) and "id" in parsed:
+                        existing_ids.append(int(parsed["id"]))
+                    else:
+                        existing_ids.append(int(parsed))
+                except (ValueError, json.JSONDecodeError):
+                    try:
+                        existing_ids.append(int(raw_existing))
+                    except ValueError:
+                        pass
+
+        # Check if we are doing a JSON-based metadata replace (backward compatibility)
+        files_metadata = request.data.get("files")
+        is_metadata_only = files_metadata is not None and not request.FILES
+        
+        if is_metadata_only:
             UserVaultFile.objects.filter(user=request.user).delete()
-            created_files = []
-            for fd in files_data:
-                f = UserVaultFile.objects.create(
+            for fd in files_metadata:
+                UserVaultFile.objects.create(
                     user=request.user,
                     file_name=fd.get("name"),
-                    file_size_mb=fd.get("sizeMB")
+                    file_size_mb=fd.get("sizeMB"),
+                    storage_bucket=1
                 )
-                created_files.append(f)
+        else:
+            # Delete any existing files that are NOT in existing_ids
+            to_delete = UserVaultFile.objects.filter(user=request.user)
+            if existing_ids:
+                to_delete = to_delete.exclude(id__in=existing_ids)
+            to_delete.delete()
+
+            # Handle new file uploads
+            uploaded_files = request.FILES.getlist("files")
+            from .s3_helper import upload_file_bytes
+            
+            for f in uploaded_files:
+                file_data = f.read()
+                file_size_bytes = len(file_data)
+                file_size_mb = f"{file_size_bytes / (1024 * 1024):.2f}"
+                
+                # Encrypt data with AES-256 GCM
+                enc_b64, key_b64, iv_b64 = encrypt_to_b64_strings(file_data)
+                
+                # Determine bucket based on size
+                if file_size_bytes <= 1 * 1024 * 1024:
+                    bucket = 1
+                elif file_size_bytes <= 10 * 1024 * 1024:
+                    bucket = 2
+                elif file_size_bytes <= 50 * 1024 * 1024:
+                    bucket = 3
+                else:
+                    bucket = 4
+                
+                unique_name = f"{uuid.uuid4().hex}.enc"
+                raw_encrypted_bytes = base64.b64decode(enc_b64.encode('utf-8'))
+                
+                # Upload to IDrive e2 S3 or fallback to local
+                is_cloud, path_or_key = upload_file_bytes(raw_encrypted_bytes, bucket, unique_name)
+                
+                UserVaultFile.objects.create(
+                    user=request.user,
+                    file_name=f.name,
+                    file_size_mb=file_size_mb,
+                    encrypted_file_path=path_or_key,
+                    encryption_key=key_b64,
+                    encryption_iv=iv_b64,
+                    storage_bucket=bucket
+                )
 
         storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
         files = UserVaultFile.objects.filter(user=request.user)
@@ -296,6 +397,37 @@ class UserVaultFilesView(APIView):
             },
             status.HTTP_200_OK
         )
+
+
+class UserVaultFileDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, file_id):
+        try:
+            vault_file = UserVaultFile.objects.get(id=file_id, user=request.user)
+        except UserVaultFile.DoesNotExist:
+            return HttpResponse("File not found or unauthorized.", status=404)
+
+        if not vault_file.encrypted_file_path:
+            return HttpResponse("File path not configured.", status=404)
+
+        from .s3_helper import download_file_bytes
+        try:
+            encrypted_bytes = download_file_bytes(vault_file.encrypted_file_path, vault_file.storage_bucket)
+        except Exception as e:
+            return HttpResponse(f"Error fetching file: {str(e)}", status=500)
+
+        try:
+            key_bytes = base64.b64decode(vault_file.encryption_key.encode('utf-8'))
+            iv_bytes = base64.b64decode(vault_file.encryption_iv.encode('utf-8'))
+            decrypted_bytes = decrypt_data(encrypted_bytes, key_bytes, iv_bytes)
+        except Exception as e:
+            return HttpResponse(f"Decryption failed: {str(e)}", status=500)
+
+        response = HttpResponse(decrypted_bytes, content_type="application/octet-stream")
+        encoded_filename = urllib.parse.quote(vault_file.file_name)
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+        return response
 
 
 def sync_user_checkin_history(user):

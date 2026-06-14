@@ -7,6 +7,7 @@ interface UploadedFile {
   id: string;
   name: string;
   sizeMB: string;
+  file?: File;
 }
 
 interface StoragePlan {
@@ -180,6 +181,7 @@ export default function DocumentsAndImages() {
       id: `${f.name}-${Date.now()}-${Math.random()}`,
       name: f.name,
       sizeMB: (f.size / (1024 * 1024)).toFixed(2),
+      file: f,
     }));
     setFiles(prev => [...prev, ...newFiles]);
     setProcessingDone(false);
@@ -202,14 +204,18 @@ export default function DocumentsAndImages() {
     setProcessingDone(false);
 
     try {
-      const payloadFiles = files.map(f => ({
-        name: f.name,
-        sizeMB: f.sizeMB,
-      }));
-      const res = await api.saveVaultFiles({
-        total_storage_gb: totalStorageGB,
-        files: payloadFiles,
+      const formData = new FormData();
+      formData.append("total_storage_gb", totalStorageGB.toString());
+
+      files.forEach(f => {
+        if (f.file) {
+          formData.append("files", f.file);
+        } else {
+          formData.append("existing_files", JSON.stringify({ id: f.id, name: f.name, sizeMB: f.sizeMB }));
+        }
       });
+
+      const res = await api.saveVaultFiles(formData);
 
       for (const step of PROCESSING_STEPS) {
         setProcessingStep(step);
@@ -349,6 +355,21 @@ export default function DocumentsAndImages() {
                   <p className="text-sm font-medium text-gray-800 truncate">{f.name}</p>
                   <p className="text-xs text-gray-400">{f.sizeMB} MB</p>
                 </div>
+                {!f.file && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void api.downloadVaultFile(Number(f.id), f.name).catch(err => {
+                        setAlertMessage(err instanceof Error ? err.message : "Failed to download file.");
+                      });
+                    }}
+                    className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 text-lg font-bold leading-none cursor-pointer mr-2"
+                    aria-label={`Download ${f.name}`}
+                    title="Download decrypted file"
+                  >
+                    📥
+                  </button>
+                )}
                 <button
                   onClick={() => handleRemove(f.id)}
                   className="text-gray-400 hover:text-red-500 transition-colors shrink-0 text-lg font-bold leading-none cursor-pointer"

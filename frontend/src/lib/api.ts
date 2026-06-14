@@ -336,11 +336,31 @@ export const api = {
   saveVaultFiles: (payload: {
     total_storage_gb?: number;
     files?: Array<{ name: string; sizeMB: string }>;
-  }) =>
+  } | FormData) =>
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
     }>("dashboard/vault-files/", "POST", payload),
+  downloadVaultFile: async (id: number, fileName: string) => {
+    const access = tokenStorage.getAccess();
+    const response = await fetch(`${API_URL}/api/v1/dashboard/vault-files/${id}/download/`, {
+      headers: {
+        Authorization: `Bearer ${access}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error("Failed to download file");
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
   getSetupAccounting: () =>
     authorizedRequest<{
       config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };

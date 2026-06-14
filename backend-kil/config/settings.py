@@ -281,3 +281,30 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 PAPYL_BASE_URL = env("PAPYL_BASE_URL", default="https://api.papyl.com/v1")
 PAPYL_API_KEY = env("PAPYL_API_KEY", default="")
 PAPYL_TIMEOUT = env.int("PAPYL_TIMEOUT", default=20)
+
+# IDrive e2 S3 Storage Configs
+IDRIVE_E2_ACCESS_KEY = env("IDRIVE_E2_ACCESS_KEY", default="")
+IDRIVE_E2_SECRET_KEY = env("IDRIVE_E2_SECRET_KEY", default="")
+IDRIVE_E2_BUCKETS = {
+    1: {
+        "region_code": "us-midwest-1",
+        "endpoint": "https://s3.us-midwest-1.idrivee2.com",
+        "bucket_name": env("IDRIVE_E2_BUCKET_CHICAGO", default="vault-chicago")
+    },
+    2: {
+        "region_code": "us-central-1",
+        "endpoint": "https://s3.us-central-1.idrivee2.com",
+        "bucket_name": env("IDRIVE_E2_BUCKET_DALLAS", default="vault-dallas")
+    },
+    3: {
+        "region_code": "us-west-2",
+        "endpoint": "https://s3.us-west-2.idrivee2.com",
+        "bucket_name": env("IDRIVE_E2_BUCKET_LA", default="vault-la")
+    },
+    4: {
+        "region_code": "us-east-1",
+        "endpoint": "https://s3.us-east-1.idrivee2.com",
+        "bucket_name": env("IDRIVE_E2_BUCKET_VIRGINIA", default="vault-virginia")
+    }
+}
+
