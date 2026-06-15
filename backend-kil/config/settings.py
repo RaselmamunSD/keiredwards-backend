@@ -76,6 +76,21 @@ SECRET_KEY = env(
 DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
+    "https://iwaskilledforthisinformation.one",
+    "https://iwaskilledforthisinformation.online",
+    "https://iwaskilledforthisinformation.xyz",
+    "https://iwaskilledforthisinformation.info",
+    "https://iwaskilledforthisinformation.space",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+])
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+
 INSTALLED_APPS = [
     "unfold",
     "django.contrib.admin",
