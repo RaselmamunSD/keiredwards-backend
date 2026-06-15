@@ -20,6 +20,7 @@ class CustomUserAdmin(UserAdmin):
     )
 
 
-admin.site.site_header = "🔐 Fontaine Administration"
-admin.site.site_title = "Fontaine Admin Portal"
-admin.site.index_title = "Welcome to Fontaine Backend Admin Dashboard"
+admin.site.site_header = "I WAS KILLED Admin Dashboard"
+admin.site.site_title = "I WAS KILLED Admin Dashboard"
+admin.site.index_title = "Admin Dashboard"
+

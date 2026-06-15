@@ -1,20 +1,13 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { api, StoragePlan } from "@/lib/api";
 
 interface UploadedFile {
   id: string;
   name: string;
   sizeMB: string;
   file?: File;
-}
-
-interface StoragePlan {
-  gb: number;
-  price: string;
-  description: string;
-  isCurrent?: boolean;
 }
 
 const STORAGE_PLANS: StoragePlan[] = [
@@ -59,11 +52,12 @@ function AlertModal({ message, onClose }: { message: string; onClose: () => void
 
 // ── Order More Storage Modal ──────────────────────────────────────────────────
 
-function OrderStorageModal({ currentGB, usedGB, onClose, onPurchase }: {
+function OrderStorageModal({ currentGB, usedGB, onClose, onPurchase, plans }: {
   currentGB: number;
   usedGB: number;
   onClose: () => void;
   onPurchase: (plan: StoragePlan) => void;
+  plans: StoragePlan[];
 }) {
   const handlePurchase = (plan: StoragePlan) => {
     onClose();
@@ -82,7 +76,7 @@ function OrderStorageModal({ currentGB, usedGB, onClose, onPurchase }: {
         </div>
 
         <div className="px-6 space-y-2 pb-3">
-          {STORAGE_PLANS.map(plan => {
+          {plans.map(plan => {
             const isCurrent = plan.gb === currentGB;
             return (
               <div
@@ -144,6 +138,7 @@ function OrderStorageModal({ currentGB, usedGB, onClose, onPurchase }: {
 export default function DocumentsAndImages() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [totalStorageGB, setTotalStorageGB] = useState(5);
+  const [storagePlans, setStoragePlans] = useState<StoragePlan[]>(STORAGE_PLANS);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -162,6 +157,9 @@ export default function DocumentsAndImages() {
       try {
         const res = await api.getVaultFiles();
         setTotalStorageGB(res.data.storage_config.total_storage_gb);
+        if (res.data.storage_plans) {
+          setStoragePlans(res.data.storage_plans);
+        }
         const mapped = res.data.files.map(f => ({
           id: String(f.id),
           name: f.file_name,
@@ -223,6 +221,9 @@ export default function DocumentsAndImages() {
       }
 
       setTotalStorageGB(res.data.storage_config.total_storage_gb);
+      if (res.data.storage_plans) {
+        setStoragePlans(res.data.storage_plans);
+      }
       const mapped = res.data.files.map(f => ({
         id: String(f.id),
         name: f.file_name,
@@ -244,6 +245,9 @@ export default function DocumentsAndImages() {
     try {
       const res = await api.saveVaultFiles({ total_storage_gb: plan.gb });
       setTotalStorageGB(res.data.storage_config.total_storage_gb);
+      if (res.data.storage_plans) {
+        setStoragePlans(res.data.storage_plans);
+      }
       setAlertMessage(`Successfully upgraded to ${plan.gb} GB storage!`);
     } catch (err) {
       setAlertMessage(err instanceof Error ? err.message : "Failed to upgrade storage plan.");
@@ -448,6 +452,7 @@ export default function DocumentsAndImages() {
         <OrderStorageModal
           currentGB={totalStorageGB}
           usedGB={usedGB}
+          plans={storagePlans}
           onClose={() => setShowStorageModal(false)}
           onPurchase={handlePurchaseStorage}
         />

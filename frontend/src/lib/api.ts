@@ -18,6 +18,13 @@ export interface ApiErrorBody {
   status_code?: number;
 }
 
+export interface StoragePlan {
+  gb: number;
+  price: string;
+  description: string;
+  isCurrent?: boolean;
+}
+
 function formatApiErrorMessage(payload: ApiErrorBody): string {
   const msg = payload.message;
   if (msg && msg !== "Request failed.") {
@@ -332,6 +339,7 @@ export const api = {
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+      storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "GET"),
   saveVaultFiles: (payload: {
     total_storage_gb?: number;
@@ -340,6 +348,7 @@ export const api = {
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+      storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "POST", payload),
   downloadVaultFile: async (id: number, fileName: string) => {
     const access = tokenStorage.getAccess();

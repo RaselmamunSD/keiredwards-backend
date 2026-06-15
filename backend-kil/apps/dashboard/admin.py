@@ -14,6 +14,7 @@ from .models import (
     BillingRecord,
     CheckInHistoryRecord,
     ContactMessage,
+    StoragePlan,
 )
 
 
@@ -151,4 +152,13 @@ class ContactMessageAdmin(admin.ModelAdmin):
     search_fields = ("full_name", "email", "subject", "message")
     readonly_fields = ("full_name", "email", "subject", "is_customer", "message", "created_at")
     date_hierarchy = "created_at"
+
+
+@admin.register(StoragePlan)
+class StoragePlanAdmin(admin.ModelAdmin):
+    list_display = ("id", "gb", "price", "description", "created_at", "updated_at")
+    list_filter = ("gb", "price")
+    search_fields = ("gb", "price", "description")
+    readonly_fields = ("id", "created_at", "updated_at")
+
 

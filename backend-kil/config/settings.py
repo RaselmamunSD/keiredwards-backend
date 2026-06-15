@@ -77,6 +77,7 @@ DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 INSTALLED_APPS = [
+    "unfold",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -307,4 +308,13 @@ IDRIVE_E2_BUCKETS = {
         "bucket_name": env("IDRIVE_E2_BUCKET_VIRGINIA", default="vault-virginia")
     }
 }
+
+UNFOLD = {
+    "SITE_TITLE": "I WAS KILLED Admin Dashboard",
+    "SITE_HEADER": "I WAS KILLED Admin Dashboard",
+    "SITE_SUBHEADER": "Admin Dashboard",
+    "SHOW_HISTORY": True,
+    "SHOW_SIDEBAR_FILTER": True,
+}
+
 

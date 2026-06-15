@@ -177,3 +177,18 @@ class ContactMessage(models.Model):
     def __str__(self):
         return f"{self.email} - {self.subject}"
 
+
+class StoragePlan(models.Model):
+    gb = models.IntegerField(unique=True)
+    price = models.CharField(max_length=50)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("gb",)
+
+    def __str__(self):
+        return f"{self.gb} GB Storage ({self.price})"
+
+

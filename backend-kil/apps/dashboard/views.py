@@ -32,6 +32,7 @@ from .models import (
     BillingRecord,
     CheckInHistoryRecord,
     ContactMessage,
+    StoragePlan,
 )
 from .serializers import (
     DashboardWidgetSerializer,
@@ -47,6 +48,7 @@ from .serializers import (
     BillingRecordSerializer,
     CheckInHistoryRecordSerializer,
     ContactMessageSerializer,
+    StoragePlanSerializer,
 )
 
 
@@ -264,14 +266,25 @@ class UserVaultFilesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
+    def _ensure_default_plans(self):
+        if StoragePlan.objects.count() == 0:
+            StoragePlan.objects.create(gb=5, price="$19.99", description="Perfect for larger files and media")
+            StoragePlan.objects.create(gb=10, price="$29.99", description="Maximum capacity for extensive archives")
+            StoragePlan.objects.create(gb=15, price="$39.99", description="Maximum capacity for extensive archives")
+            StoragePlan.objects.create(gb=20, price="$49.99", description="Maximum capacity for extensive archives")
+            StoragePlan.objects.create(gb=25, price="$79.99", description="Enterprise-level storage solution")
+
     def get(self, request):
+        self._ensure_default_plans()
         storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
         files = UserVaultFile.objects.filter(user=request.user)
+        storage_plans = StoragePlan.objects.all()
         return success_response(
             "Vault files fetched successfully.",
             {
                 "storage_config": StorageConfigSerializer(storage_config).data,
                 "files": UserVaultFileSerializer(files, many=True).data,
+                "storage_plans": StoragePlanSerializer(storage_plans, many=True).data,
             },
             status.HTTP_200_OK
         )
@@ -387,13 +400,16 @@ class UserVaultFilesView(APIView):
                     storage_bucket=bucket
                 )
 
+        self._ensure_default_plans()
         storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
         files = UserVaultFile.objects.filter(user=request.user)
+        storage_plans = StoragePlan.objects.all()
         return success_response(
             "Vault files saved successfully.",
             {
                 "storage_config": StorageConfigSerializer(storage_config).data,
                 "files": UserVaultFileSerializer(files, many=True).data,
+                "storage_plans": StoragePlanSerializer(storage_plans, many=True).data,
             },
             status.HTTP_200_OK
         )

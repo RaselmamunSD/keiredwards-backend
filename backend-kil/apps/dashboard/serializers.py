@@ -14,6 +14,7 @@ from .models import (
     BillingRecord,
     CheckInHistoryRecord,
     ContactMessage,
+    StoragePlan,
 )
 
 
@@ -117,4 +118,12 @@ class ContactMessageSerializer(serializers.ModelSerializer):
         model = ContactMessage
         fields = ("id", "full_name", "email", "subject", "is_customer", "message", "created_at")
         read_only_fields = ("id", "created_at")
+
+
+class StoragePlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StoragePlan
+        fields = ("id", "gb", "price", "description")
+        read_only_fields = ("id",)
+
 
