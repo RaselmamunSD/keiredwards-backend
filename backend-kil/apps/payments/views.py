@@ -158,6 +158,111 @@ class PaymentVerifyView(APIView):
                         import logging
                         logger = logging.getLogger(__name__)
                         logger.error(f"Error upgrading press release tier for user {payment.user.id}: {e}")
+            elif metadata.get("type") == "setup_accounting_purchase":
+                try:
+                    purchase_services = metadata.get("purchase_services", [])
+                    extra_storage_gb = metadata.get("extra_storage_gb")
+                    check_in_service = metadata.get("check_in_service")
+                    press_option = metadata.get("press_option")
+
+                    from apps.dashboard.models import SetupAccountingConfig, ActiveService, BillingRecord, StorageConfig, CheckInScheduleConfig, PressReleaseConfig
+
+                    # 1. Fetch or create SetupAccountingConfig for user
+                    config, created = SetupAccountingConfig.objects.get_or_create(
+                        user=payment.user,
+                        defaults={"two_fa_email": payment.user.email, "has_two_fa": False}
+                    )
+
+                    # 2. Process purchase_services (like Private Email, Two-Factor Authentication)
+                    if purchase_services:
+                        for sname in purchase_services:
+                            ActiveService.objects.filter(user=payment.user, name=sname).update(
+                                is_purchased=True,
+                                active_until="March 7, 2027"
+                            )
+                            if sname == "Two-Factor Authentication":
+                                config.has_two_fa = True
+                                config.save()
+                            
+                            price_str = "$39.00"
+                            if sname == "Private Email":
+                                price_str = "$39.00"
+                            elif sname == "Two-Factor Authentication":
+                                price_str = "$39.00"
+                            elif sname == "Press Release":
+                                price_str = "$250.00"
+                                if press_option == "press_release_500":
+                                    price_str = "$495.00"
+                                elif press_option == "press_release_1000":
+                                    price_str = "$695.00"
+                            
+                            BillingRecord.objects.get_or_create(
+                                user=payment.user,
+                                description=f"Purchase: {sname}",
+                                defaults={"date": "06/11/2026", "amount": price_str}
+                            )
+
+                    # 3. Process extra storage
+                    if extra_storage_gb:
+                        try:
+                            gb = int(extra_storage_gb)
+                            if gb > 0:
+                                storage_config, created = StorageConfig.objects.get_or_create(user=payment.user)
+                                storage_config.total_storage_gb = 5 + gb
+                                storage_config.save()
+
+                                ActiveService.objects.filter(user=payment.user, name="Additional Storage").update(
+                                    additional_info=f"{5 + gb} GB",
+                                    is_purchased=True,
+                                    active_until="March 7, 2027"
+                                )
+                                BillingRecord.objects.get_or_create(
+                                    user=payment.user,
+                                    description=f"Storage: {gb} GB Extra",
+                                    defaults={"date": "06/11/2026", "amount": f"${gb * 15}.00"}
+                                )
+                        except Exception as e:
+                            pass
+
+                    # 4. Process check-in service
+                    if check_in_service:
+                        ActiveService.objects.filter(user=payment.user, name="I Was Killed For This Information").update(
+                            additional_info=check_in_service,
+                            is_purchased=True,
+                            active_until="March 7, 2027"
+                        )
+                        plan_name = check_in_service.replace(" Check-In", "")
+                        CheckInScheduleConfig.objects.filter(user=payment.user).update(
+                            purchased_plan=plan_name,
+                            renewal_date="March 7, 2027"
+                        )
+                        BillingRecord.objects.get_or_create(
+                            user=payment.user,
+                            description=f"Main Service: {check_in_service}",
+                            defaults={"date": "06/11/2026", "amount": "$91.00"}
+                        )
+
+                    # 5. Process press option
+                    if press_option:
+                        ActiveService.objects.filter(user=payment.user, name="Press Release").update(
+                            is_purchased=True,
+                            active_until="March 7, 2027"
+                        )
+                        tier_map = {
+                            "press_release": 0,
+                            "press_release_250": 0,
+                            "press_release_500": 1,
+                            "press_release_1000": 2
+                        }
+                        tier_index = tier_map.get(press_option, 0)
+                        press_config, created = PressReleaseConfig.objects.get_or_create(user=payment.user)
+                        press_config.current_tier = tier_index
+                        press_config.save()
+
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error executing setup_accounting_purchase for user {payment.user.id}: {e}")
 
         return success_response(
             "Payment verified successfully.",

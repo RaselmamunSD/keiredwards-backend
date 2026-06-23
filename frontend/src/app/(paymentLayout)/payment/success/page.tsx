@@ -28,6 +28,8 @@ function PaymentSuccessContent() {
         );
         if (result.data.payment.metadata?.type === "press_release_upgrade") {
           setRedirectTab("press-release");
+        } else if (result.data.payment.metadata?.type === "setup_accounting_purchase") {
+          setRedirectTab("setup-accounting");
         }
       } catch (error) {
         setStatus("error");

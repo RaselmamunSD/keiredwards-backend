@@ -384,18 +384,25 @@ export const api = {
       services: Array<{ id: number; name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
       billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
       history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
+      addons?: Array<{ key: string; label: string; description: string; price: number }>;
+      press_release_options?: Array<{ key: string; label: string; description: string; price: number }>;
     }>("dashboard/setup-accounting/", "GET"),
   updateSetupAccounting: (payload: {
     two_fa_enabled?: boolean;
     two_fa_email?: string;
     purchase_service?: string;
+    purchase_services?: string[];
     renew_services?: string[];
+    extra_storage_gb?: number;
+    check_in_service?: string;
   }) =>
     authorizedRequest<{
       config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
       services: Array<{ id: number; name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
       billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
       history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
+      addons?: Array<{ key: string; label: string; description: string; price: number }>;
+      press_release_options?: Array<{ key: string; label: string; description: string; price: number }>;
     }>("dashboard/setup-accounting/", "POST", payload),
   passwordChange: (payload: { old_password: string; new_password: string; new_password_confirm: string }) =>
     authorizedRequest<{}>("auth/password/change/", "POST", payload),

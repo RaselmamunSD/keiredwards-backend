@@ -593,6 +593,30 @@ class SetupAccountingConfigView(APIView):
                 return datetime.min
         history.sort(key=parse_dt, reverse=True)
 
+        from apps.payments.models import AddOnOption
+        addons = AddOnOption.objects.exclude(key__startswith="press_release").exclude(key="extra_storage")
+        press_addons = AddOnOption.objects.filter(key__startswith="press_release")
+
+        addons_data = [
+            {
+                "key": a.key,
+                "label": a.label,
+                "description": a.description,
+                "price": float(a.price)
+            }
+            for a in addons
+        ]
+
+        press_addons_data = [
+            {
+                "key": a.key,
+                "label": a.label,
+                "description": a.description,
+                "price": float(a.price)
+            }
+            for a in press_addons
+        ]
+
         return success_response(
             "Setup & Accounting fetched successfully.",
             {
@@ -600,6 +624,8 @@ class SetupAccountingConfigView(APIView):
                 "services": ActiveServiceSerializer(services, many=True).data,
                 "billing": BillingRecordSerializer(billing, many=True).data,
                 "history": CheckInHistoryRecordSerializer(history, many=True).data,
+                "addons": addons_data,
+                "press_release_options": press_addons_data,
             },
             status.HTTP_200_OK
         )

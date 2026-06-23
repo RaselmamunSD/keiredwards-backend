@@ -540,90 +540,149 @@ function ActiveServicesContent({ services: initialServices, onPurchase, onRenew 
 }
 
 // ─── New Orders ───────────────────────────────────────────────────────────────
+interface NewOrdersContentProps {
+  addonsList: Array<{ key: string; label: string; description: string; price: number }>;
+  pressOptionsList: Array<{ key: string; label: string; description: string; price: number }>;
+  onSuccess?: () => void;
+}
 
-function NewOrdersContent({ onSuccess }: { onSuccess?: () => void }) {
+function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrdersContentProps) {
   const [step, setStep] = useState<NewOrderStep>("addons");
-  const [addons, setAddons] = useState<NewOrderAddons>({ privateEmail: false, twoFA: false });
+  const [selectedAddons, setSelectedAddons] = useState<Record<string, boolean>>({});
   const [deliveryChoice, setDeliveryChoice] = useState<"trusted" | "press" | "">("");
-  const [pressRelease, setPressRelease] = useState<NewOrderPressRelease>({
-    sendToRecipients: true, pressOption: "", category: "",
+  const [pressRelease, setPressRelease] = useState<{
+    sendToRecipients: boolean;
+    pressOption: string;
+    category: string;
+  }>({
+    sendToRecipients: true,
+    pressOption: "",
+    category: "",
   });
   const [payment, setPayment] = useState<NewOrderPayment>({ extraStorageGB: 3, checkInService: "", checkInTerm: "" });
-  const [orderSuccess, setOrderSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  const finalAddonsList = addonsList && addonsList.length > 0 ? addonsList : [
+    { key: "private_email", label: "Private - Check In Email address", description: "", price: 39 },
+    { key: "2fa", label: "Secured Login - Two-Factor Authentication (2FA)", description: "", price: 39 }
+  ];
+
+  const finalPressOptions = pressOptionsList && pressOptionsList.length > 0 ? pressOptionsList : [
+    { key: "press_release_250", label: "250 media organizations", description: "", price: 250 },
+    { key: "press_release_500", label: "500 media organizations", description: "", price: 495 },
+    { key: "press_release_1000", label: "1,000+ media organizations", description: "", price: 695 }
+  ];
+
+  // Calculate pricing dynamically
+  const addonsTotal = finalAddonsList
+    .filter(a => selectedAddons[a.key])
+    .reduce((sum, a) => sum + a.price, 0);
+
+  const pressTotal = deliveryChoice === "press"
+    ? (finalPressOptions.find(p => p.key === pressRelease.pressOption)?.price ?? 0)
+    : 0;
+
+  const storageTotal = payment.extraStorageGB * 15;
+  const checkInTotal = (payment.checkInService && payment.checkInTerm ? 91 : 0);
+  const total = addonsTotal + pressTotal + storageTotal + checkInTotal;
 
   const handlePayNow = async () => {
-    const servicesToPurchase: string[] = [];
-    if (addons.privateEmail) {
-      servicesToPurchase.push("Private Email");
-    }
-    if (addons.twoFA) {
-      servicesToPurchase.push("Two-Factor Authentication");
-    }
-    if (deliveryChoice === "press") {
-      servicesToPurchase.push("Press Release");
-    }
-
-    setLoading(true);
     try {
-      const payload: any = {};
-      if (servicesToPurchase.length > 0) {
-        payload.purchase_services = servicesToPurchase;
-      }
-      if (payment.extraStorageGB > 0) {
-        payload.extra_storage_gb = payment.extraStorageGB;
-      }
-      if (payment.checkInService) {
-        payload.check_in_service = payment.checkInService;
+      const orderItems: Array<{ label: string; price: number }> = [];
+      const purchaseServices: string[] = [];
+
+      // Add selected addons
+      finalAddonsList.forEach(a => {
+        if (selectedAddons[a.key]) {
+          orderItems.push({ label: a.label, price: a.price });
+          if (a.key === "private_email") {
+            purchaseServices.push("Private Email");
+          } else if (a.key === "2fa") {
+            purchaseServices.push("Two-Factor Authentication");
+          } else {
+            purchaseServices.push(a.label);
+          }
+        }
+      });
+
+      // Add press option
+      if (deliveryChoice === "press" && pressRelease.pressOption) {
+        const selectedPress = finalPressOptions.find(p => p.key === pressRelease.pressOption);
+        if (selectedPress) {
+          orderItems.push({ label: selectedPress.label, price: selectedPress.price });
+          purchaseServices.push("Press Release");
+        }
       }
 
-      await api.updateSetupAccounting(payload);
-      setOrderSuccess(true);
-      if (onSuccess) {
-        onSuccess();
+      // Add storage
+      if (payment.extraStorageGB > 0) {
+        orderItems.push({ label: `Additional Storage (${payment.extraStorageGB} GB)`, price: storageTotal });
       }
+
+      // Add check-in plan
+      if (payment.checkInService && payment.checkInTerm) {
+        orderItems.push({ label: `${payment.checkInService} (${payment.checkInTerm})`, price: checkInTotal });
+      }
+
+      if (orderItems.length === 0) {
+        Swal.fire({
+          title: "Empty Order",
+          text: "Please select at least one service or add extra storage before paying.",
+          icon: "warning"
+        });
+        return;
+      }
+
+      localStorage.setItem("checkout_amount", total.toString());
+      localStorage.setItem("checkout_order_items", JSON.stringify(orderItems));
+      localStorage.setItem(
+        "checkout_metadata",
+        JSON.stringify({
+          type: "setup_accounting_purchase",
+          purchase_services: purchaseServices,
+          extra_storage_gb: payment.extraStorageGB > 0 ? payment.extraStorageGB : undefined,
+          check_in_service: payment.checkInService || undefined,
+          press_option: deliveryChoice === "press" ? pressRelease.pressOption : undefined
+        })
+      );
+
+      window.location.href = "/payment";
     } catch (err) {
-      console.error("Order failed", err);
+      console.error("Initiating payment failed", err);
       Swal.fire({
         title: "Order Failed",
-        text: "There was an error processing your order. Please try again.",
-        icon: "error",
+        text: "Failed to initiate checkout. Please try again.",
+        icon: "error"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   if (step === "addons") {
     return (
       <div className="space-y-3 text-sm">
-        {[
-          { key: "privateEmail" as const, title: "Private - Check In Email address", price: "$39 / year" },
-          { key: "twoFA" as const, title: "Secured Login - Two-Factor Authentication (2FA)", price: "$39 / year" },
-        ].map(({ key, title, price }) => (
+        {finalAddonsList.map((addon) => (
           <div
-            key={key}
+            key={addon.key}
             className={`border rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 transition-colors cursor-pointer
-              ${addons[key] ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
-            onClick={() => setAddons(p => ({ ...p, [key]: !p[key] }))}
+              ${selectedAddons[addon.key] ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+            onClick={() => setSelectedAddons(p => ({ ...p, [addon.key]: !p[addon.key] }))}
           >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <input
                 type="checkbox"
-                checked={addons[key]}
-                onChange={() => setAddons(p => ({ ...p, [key]: !p[key] }))}
+                checked={!!selectedAddons[addon.key]}
+                onChange={() => setSelectedAddons(p => ({ ...p, [addon.key]: !p[addon.key] }))}
                 onClick={e => e.stopPropagation()}
                 className="w-4 h-4 accent-green-500 shrink-0 cursor-pointer"
               />
-              <span className={`font-medium ${addons[key] ? "text-green-800" : "text-gray-800"}`}>{title}</span>
+              <span className={`font-medium ${selectedAddons[addon.key] ? "text-green-800" : "text-gray-800"}`}>{addon.label}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0" onClick={e => e.stopPropagation()}>
-              <span className="text-red-500 font-bold text-sm">{price}</span>
+              <span className="text-red-500 font-bold text-sm">${addon.price} / year</span>
               <button
-                onClick={() => setAddons(p => ({ ...p, [key]: !p[key] }))}
-                className={`text-xs font-bold px-4 py-2 rounded-lg transition-colors ${addons[key] ? "bg-red-500 hover:bg-red-400 text-white" : "bg-green-500 hover:bg-green-400 text-white"}`}
+                onClick={() => setSelectedAddons(p => ({ ...p, [addon.key]: !p[addon.key] }))}
+                className={`text-xs font-bold px-4 py-2 rounded-lg transition-colors ${selectedAddons[addon.key] ? "bg-red-500 hover:bg-red-400 text-white" : "bg-green-500 hover:bg-green-400 text-white"}`}
               >
-                {addons[key] ? "REMOVE" : "ADD"}
+                {selectedAddons[addon.key] ? "REMOVE" : "ADD"}
               </button>
             </div>
           </div>
@@ -706,20 +765,16 @@ function NewOrdersContent({ onSuccess }: { onSuccess?: () => void }) {
         <div>
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Press Release</p>
           <div className="space-y-2">
-            {([
-              { key: "press100" as const, label: "100 media organizations — $110" },
-              { key: "press250" as const, label: "250 media organizations — $250" },
-              { key: "press500" as const, label: "500 media organizations — $495" },
-            ]).map(({ key, label }) => (
-              <label key={key} className={`flex items-center gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${pressRelease.pressOption === key ? "border-green-300 bg-green-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            {finalPressOptions.map((opt) => (
+              <label key={opt.key} className={`flex items-center gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${pressRelease.pressOption === opt.key ? "border-green-300 bg-green-50" : "border-gray-200 hover:bg-gray-50"}`}>
                 <input
                   type="radio"
                   name="pressOption"
-                  checked={pressRelease.pressOption === key}
-                  onChange={() => setPressRelease(p => ({ ...p, pressOption: key, category: "" }))}
+                  checked={pressRelease.pressOption === opt.key}
+                  onChange={() => setPressRelease(p => ({ ...p, pressOption: opt.key, category: "" }))}
                   className="w-4 h-4 accent-green-500"
                 />
-                <span className="font-medium text-gray-700">{label}</span>
+                <span className="font-medium text-gray-700">{opt.label} — ${opt.price}</span>
               </label>
             ))}
           </div>
@@ -750,26 +805,6 @@ function NewOrdersContent({ onSuccess }: { onSuccess?: () => void }) {
           <button onClick={() => setStep("delivery")} className="bg-red-500 hover:bg-red-400 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">← BACK</button>
           <button onClick={() => setStep("payment")} className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors">CONTINUE →</button>
         </div>
-      </div>
-    );
-  }
-
-  const total = (payment.checkInService && payment.checkInTerm ? 91 : 0) + payment.extraStorageGB * 15;
-
-  if (orderSuccess) {
-    return (
-      <div className="text-sm space-y-4">
-        <div className="bg-green-50 border border-green-300 text-green-700 px-4 py-4 rounded-lg flex items-center gap-3">
-          <span className="text-2xl">✓</span>
-          <div>
-            <p className="font-bold">Order Placed Successfully!</p>
-            <p className="text-xs text-green-600 mt-0.5">Your order has been submitted. You will receive a confirmation email shortly.</p>
-          </div>
-        </div>
-        <button onClick={() => { setStep("addons"); setOrderSuccess(false); setAddons({ privateEmail: false, twoFA: false }); setDeliveryChoice(""); setPayment({ extraStorageGB: 3, checkInService: "", checkInTerm: "" }); }}
-          className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors">
-          PLACE ANOTHER ORDER
-        </button>
       </div>
     );
   }
@@ -811,6 +846,13 @@ function NewOrdersContent({ onSuccess }: { onSuccess?: () => void }) {
           <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Price</span>
         </div>
         {[
+          ...finalAddonsList.filter(a => selectedAddons[a.key]).map(a => ({ label: a.label, price: `$${a.price}` })),
+          ...(deliveryChoice === "press" && pressRelease.pressOption ? [
+            {
+              label: finalPressOptions.find(p => p.key === pressRelease.pressOption)?.label ?? "Press Release",
+              price: `$${finalPressOptions.find(p => p.key === pressRelease.pressOption)?.price ?? 0}`
+            }
+          ] : []),
           { label: `Main Service | ${payment.checkInService || "—"}`, price: payment.checkInService ? "$91" : "—" },
           { label: `Additional Storage ${payment.extraStorageGB} GB`, price: `$${payment.extraStorageGB * 15}` },
         ].map((r, i) => (
@@ -830,10 +872,9 @@ function NewOrdersContent({ onSuccess }: { onSuccess?: () => void }) {
           </div>
           <button
             onClick={handlePayNow}
-            disabled={loading}
-            className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors disabled:bg-gray-400"
+            className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors"
           >
-            {loading ? "PROCESSING..." : "PAY NOW"}
+            PAY NOW
           </button>
         </div>
       </div>
@@ -989,6 +1030,8 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
     services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
     billing: Array<{ date: string; description: string; amount: string; is_included: boolean }>;
     history: Array<{ date: string; time: string; ip: string; login_name: string; device_os: string }>;
+    addons?: Array<{ key: string; label: string; description: string; price: number }>;
+    press_release_options?: Array<{ key: string; label: string; description: string; price: number }>;
   } | null>(null);
 
   const [open, setOpen] = useState<Record<string, boolean>>({
@@ -1125,7 +1168,15 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
           </AccordionContent>
         )}
         <AccordionRow label="New Orders" expanded={open.newOrders} onToggle={() => toggle("newOrders")} />
-        {open.newOrders && <AccordionContent><NewOrdersContent onSuccess={loadData} /></AccordionContent>}
+        {open.newOrders && (
+          <AccordionContent>
+            <NewOrdersContent
+              addonsList={data.addons || []}
+              pressOptionsList={data.press_release_options || []}
+              onSuccess={loadData}
+            />
+          </AccordionContent>
+        )}
         <AccordionRow label="Billing History" expanded={open.billingHistory} onToggle={() => toggle("billingHistory")} />
         {open.billingHistory && <AccordionContent><BillingHistoryContent billing={data.billing} /></AccordionContent>}
       </SectionWrapper>
