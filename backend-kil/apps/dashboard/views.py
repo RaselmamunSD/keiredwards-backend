@@ -348,7 +348,19 @@ class UserVaultFilesView(APIView):
         files_metadata = request.data.get("files")
         is_metadata_only = files_metadata is not None and not request.FILES
         
+        # 2b. Storage Limit Check
+        storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
+        total_limit_bytes = storage_config.total_storage_gb * 1024 * 1024 * 1024
+        
         if is_metadata_only:
+            new_files_bytes = sum(float(fd.get("sizeMB", 0)) * 1024 * 1024 for fd in files_metadata)
+            if new_files_bytes > total_limit_bytes:
+                return success_response(
+                    "Upload failed. Exceeds your storage limit.",
+                    {},
+                    status.HTTP_400_BAD_REQUEST
+                )
+            
             UserVaultFile.objects.filter(user=request.user).delete()
             for fd in files_metadata:
                 UserVaultFile.objects.create(
@@ -358,6 +370,31 @@ class UserVaultFilesView(APIView):
                     storage_bucket=1
                 )
         else:
+            # Calculate size of existing files to keep
+            existing_files = UserVaultFile.objects.filter(user=request.user)
+            if existing_ids:
+                existing_files = existing_files.filter(id__in=existing_ids)
+            else:
+                existing_files = existing_files.none()
+                
+            current_used_bytes = 0
+            for ef in existing_files:
+                try:
+                    current_used_bytes += float(ef.file_size_mb) * 1024 * 1024
+                except ValueError:
+                    pass
+                    
+            # Calculate size of new files
+            uploaded_files = request.FILES.getlist("files")
+            new_files_bytes = sum(f.size for f in uploaded_files)
+            
+            if current_used_bytes + new_files_bytes > total_limit_bytes:
+                return success_response(
+                    "Upload failed. Exceeds your storage limit.",
+                    {},
+                    status.HTTP_400_BAD_REQUEST
+                )
+
             # Delete any existing files that are NOT in existing_ids
             to_delete = UserVaultFile.objects.filter(user=request.user)
             if existing_ids:
@@ -365,32 +402,31 @@ class UserVaultFilesView(APIView):
             to_delete.delete()
 
             # Handle new file uploads
-            uploaded_files = request.FILES.getlist("files")
-            from .s3_helper import upload_file_bytes
+            from .s3_helper import upload_file_stream
             
             for f in uploaded_files:
-                file_data = f.read()
-                file_size_bytes = len(file_data)
+                file_size_bytes = f.size
                 file_size_mb = f"{file_size_bytes / (1024 * 1024):.2f}"
                 
-                # Encrypt data with AES-256 GCM
-                enc_b64, key_b64, iv_b64 = encrypt_to_b64_strings(file_data)
+                # Generate dynamic encryption key and IV
+                key_bytes = os.urandom(32)
+                iv_bytes = os.urandom(16)
+                
+                key_b64 = base64.b64encode(key_bytes).decode('utf-8')
+                iv_b64 = base64.b64encode(iv_bytes).decode('utf-8')
                 
                 # Determine bucket based on size
-                if file_size_bytes <= 1 * 1024 * 1024:
+                if file_size_bytes <= 10 * 1024 * 1024:
                     bucket = 1
-                elif file_size_bytes <= 10 * 1024 * 1024:
+                elif file_size_bytes <= 100 * 1024 * 1024:
                     bucket = 2
-                elif file_size_bytes <= 50 * 1024 * 1024:
-                    bucket = 3
                 else:
-                    bucket = 4
+                    bucket = 4 if 4 in settings.IDRIVE_E2_BUCKETS else 3
                 
                 unique_name = f"{uuid.uuid4().hex}.enc"
-                raw_encrypted_bytes = base64.b64decode(enc_b64.encode('utf-8'))
                 
-                # Upload to IDrive e2 S3 or fallback to local
-                is_cloud, path_or_key = upload_file_bytes(raw_encrypted_bytes, bucket, unique_name)
+                # Upload stream
+                is_cloud, path_or_key = upload_file_stream(f, bucket, unique_name, key_bytes, iv_bytes)
                 
                 UserVaultFile.objects.create(
                     user=request.user,
@@ -429,23 +465,21 @@ class UserVaultFileDownloadView(APIView):
         if not vault_file.encrypted_file_path:
             return HttpResponse("File path not configured.", status=404)
 
-        from .s3_helper import download_file_bytes
+        from django.http import StreamingHttpResponse
+        from .s3_helper import stream_decrypted_file
         try:
-            encrypted_bytes = download_file_bytes(vault_file.encrypted_file_path, vault_file.storage_bucket)
+            file_stream = stream_decrypted_file(
+                vault_file.encrypted_file_path,
+                vault_file.storage_bucket,
+                vault_file.encryption_key,
+                vault_file.encryption_iv
+            )
+            response = StreamingHttpResponse(file_stream, content_type="application/octet-stream")
+            encoded_filename = urllib.parse.quote(vault_file.file_name)
+            response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+            return response
         except Exception as e:
-            return HttpResponse(f"Error fetching file: {str(e)}", status=500)
-
-        try:
-            key_bytes = base64.b64decode(vault_file.encryption_key.encode('utf-8'))
-            iv_bytes = base64.b64decode(vault_file.encryption_iv.encode('utf-8'))
-            decrypted_bytes = decrypt_data(encrypted_bytes, key_bytes, iv_bytes)
-        except Exception as e:
-            return HttpResponse(f"Decryption failed: {str(e)}", status=500)
-
-        response = HttpResponse(decrypted_bytes, content_type="application/octet-stream")
-        encoded_filename = urllib.parse.quote(vault_file.file_name)
-        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
-        return response
+            return HttpResponse(f"Error downloading file: {str(e)}", status=500)
 
 
 def sync_user_checkin_history(user):
