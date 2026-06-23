@@ -7,6 +7,7 @@ from .models import (
     TrustedRecipient,
     EmailTemplateConfig,
     PressReleaseConfig,
+    PressReleaseTier,
     StorageConfig,
     UserVaultFile,
     SetupAccountingConfig,
@@ -95,10 +96,17 @@ class EmailTemplateConfigAdmin(admin.ModelAdmin):
 
 @admin.register(PressReleaseConfig)
 class PressReleaseConfigAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "is_active", "current_tier", "updated_at")
+    list_display = ("id", "user", "is_active", "current_tier", "category", "updated_at")
     list_filter = ("is_active", "current_tier")
-    search_fields = ("user__username", "user__email")
+    search_fields = ("user__username", "user__email", "category")
     readonly_fields = ("id", "updated_at")
+
+
+@admin.register(PressReleaseTier)
+class PressReleaseTierAdmin(admin.ModelAdmin):
+    list_display = ("tier_index", "count", "label", "price")
+    list_editable = ("count", "label", "price")
+    ordering = ("tier_index",)
 
 
 @admin.register(StorageConfig)

@@ -327,6 +327,8 @@ export const api = {
       is_active: boolean;
       template: string;
       current_tier: number;
+      category?: string;
+      tiers?: Array<{ count: string; label: string; price: string | null }>;
     }>("dashboard/press-release/", "GET"),
   savePressRelease: (payload: Partial<{
     is_active: boolean;
@@ -338,6 +340,8 @@ export const api = {
       is_active: boolean;
       template: string;
       current_tier: number;
+      category?: string;
+      tiers?: Array<{ count: string; label: string; price: string | null }>;
     }>("dashboard/press-release/", "POST", payload),
   getVaultFiles: () =>
     authorizedRequest<{

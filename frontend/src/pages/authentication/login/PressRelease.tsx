@@ -58,11 +58,13 @@ export default function PressRelease() {
   const [draft, setDraft] = useState(template);
   const [saved, setSaved] = useState(false);
   const [currentTier, setCurrentTier] = useState(0);
+  const [category, setCategory] = useState("Government corruption");
+  const [tiers, setTiers] = useState<Array<{ count: string; label: string; price: string | null }>>(REACH_TIERS);
 
   // ── Alert Modal State ──
   const [alertMessage, setAlertMessage] = useState("");
 
-  const safeCurrentTier = currentTier >= 0 && currentTier < REACH_TIERS.length ? currentTier : 0;
+  const safeCurrentTier = currentTier >= 0 && currentTier < tiers.length ? currentTier : 0;
 
   useEffect(() => {
     const load = async () => {
@@ -72,6 +74,12 @@ export default function PressRelease() {
         setTemplate(res.data.template);
         setDraft(res.data.template);
         setCurrentTier(res.data.current_tier);
+        if (res.data.category) {
+          setCategory(res.data.category);
+        }
+        if (res.data.tiers && res.data.tiers.length > 0) {
+          setTiers(res.data.tiers);
+        }
       } catch (err) {
         console.error("Failed to load press release template", err);
       }
@@ -123,7 +131,7 @@ export default function PressRelease() {
       localStorage.setItem(
         "checkout_order_items",
         JSON.stringify([
-          { label: `${REACH_TIERS[tierIndex].count} Media Outlets Upgrade`, price: priceNum }
+          { label: `${tiers[tierIndex].count} Media Outlets Upgrade`, price: priceNum }
         ])
       );
       localStorage.setItem(
@@ -141,8 +149,8 @@ export default function PressRelease() {
 
   const handleUpgradeNext = () => {
     const nextTierIndex = safeCurrentTier + 1;
-    if (nextTierIndex < REACH_TIERS.length) {
-      handleUpgradeTier(nextTierIndex, REACH_TIERS[nextTierIndex].price);
+    if (nextTierIndex < tiers.length) {
+      handleUpgradeTier(nextTierIndex, tiers[nextTierIndex].price);
     } else {
       setAlertMessage("You are already at the highest tier available. For custom requirements, please contact support.");
     }
@@ -180,7 +188,7 @@ export default function PressRelease() {
               </span>
             </p>
             <p className="text-green-600 text-sm mt-0.5">
-              Configured for {REACH_TIERS[safeCurrentTier].count} media organizations
+              Configured for {tiers[safeCurrentTier]?.count ?? "250"} media organizations
             </p>
           </div>
         </div>
@@ -200,11 +208,11 @@ export default function PressRelease() {
         </div>
         <p className="text-sm text-gray-700 mb-3">
           Upon a failure to Check-In, you have selected a press release of{" "}
-          <span className="text-blue-600 font-bold">{REACH_TIERS[safeCurrentTier].count} Media Organizations.</span>
+          <span className="text-blue-600 font-bold">{tiers[safeCurrentTier]?.count ?? "250"} Media Organizations.</span>
         </p>
         <div className="border border-gray-200 bg-white p-3 inline-block rounded-xl">
           <p className="text-xs text-gray-500 mb-0.5">The category selected is:</p>
-          <p className="text-blue-600 font-bold text-sm">Government corruption</p>
+          <p className="text-blue-600 font-bold text-sm">{category}</p>
         </div>
       </div>
 
@@ -297,7 +305,7 @@ export default function PressRelease() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {REACH_TIERS.map((tier, index) => (
+          {tiers.map((tier, index) => (
             <div
               key={index}
               className={`border rounded-xl p-5 flex flex-col gap-3 transition-colors ${safeCurrentTier === index

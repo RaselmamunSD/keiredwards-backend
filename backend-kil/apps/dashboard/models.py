@@ -82,10 +82,24 @@ class PressReleaseConfig(models.Model):
     is_active = models.BooleanField(default=True)
     template = models.TextField()
     current_tier = models.IntegerField(default=0)
+    category = models.CharField(max_length=255, default="Government corruption")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.username}'s Press Release Config"
+
+
+class PressReleaseTier(models.Model):
+    tier_index = models.IntegerField(unique=True, help_text="0-indexed identifier, e.g. 0, 1, 2")
+    count = models.CharField(max_length=50, help_text="e.g. 250, 500, 1,000+")
+    label = models.CharField(max_length=100, default="Media Outlets")
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price for upgrade. Leave empty/0 for standard.")
+
+    class Meta:
+        ordering = ("tier_index",)
+
+    def __str__(self):
+        return f"Tier {self.tier_index}: {self.count} outlets (${self.price or 0})"
 
 
 class StorageConfig(models.Model):

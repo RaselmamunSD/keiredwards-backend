@@ -7,6 +7,7 @@ from .models import (
     TrustedRecipient,
     EmailTemplateConfig,
     PressReleaseConfig,
+    PressReleaseTier,
     StorageConfig,
     UserVaultFile,
     SetupAccountingConfig,
@@ -64,11 +65,37 @@ class EmailTemplateConfigSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "updated_at")
 
 
+class PressReleaseTierSerializer(serializers.ModelSerializer):
+    price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PressReleaseTier
+        fields = ("tier_index", "count", "label", "price")
+
+    def get_price(self, obj):
+        if obj.price is None or obj.price == 0:
+            return None
+        if obj.price % 1 == 0:
+            return f"${int(obj.price)}"
+        return f"${obj.price:.2f}"
+
+
 class PressReleaseConfigSerializer(serializers.ModelSerializer):
+    tiers = serializers.SerializerMethodField()
+
     class Meta:
         model = PressReleaseConfig
-        fields = ("id", "is_active", "template", "current_tier", "updated_at")
+        fields = ("id", "is_active", "template", "current_tier", "category", "tiers", "updated_at")
         read_only_fields = ("id", "updated_at")
+
+    def get_tiers(self, obj):
+        tiers = PressReleaseTier.objects.all().order_by("tier_index")
+        if not tiers.exists():
+            PressReleaseTier.objects.create(tier_index=0, count="250", label="Media Outlets", price=None)
+            PressReleaseTier.objects.create(tier_index=1, count="500", label="Media Outlets", price=495.00)
+            PressReleaseTier.objects.create(tier_index=2, count="1,000+", label="Media Outlets", price=695.00)
+            tiers = PressReleaseTier.objects.all().order_by("tier_index")
+        return PressReleaseTierSerializer(tiers, many=True).data
 
 
 class StorageConfigSerializer(serializers.ModelSerializer):
