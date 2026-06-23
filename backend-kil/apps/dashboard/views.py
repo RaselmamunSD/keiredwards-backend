@@ -294,8 +294,10 @@ class UserVaultFilesView(APIView):
         total_storage_gb = request.data.get("total_storage_gb")
         if total_storage_gb:
             storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
-            storage_config.total_storage_gb = int(total_storage_gb)
-            storage_config.save()
+            new_gb = int(total_storage_gb)
+            if created or new_gb <= storage_config.total_storage_gb:
+                storage_config.total_storage_gb = new_gb
+                storage_config.save()
 
         # 2. Get existing files to keep
         existing_ids = []

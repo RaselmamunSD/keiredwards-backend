@@ -47,7 +47,7 @@ function PaymentSuccessContent() {
         <div className="mt-6 flex gap-3">
           <button
             className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm cursor-pointer"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/dashboard?tab=documents-and-images")}
           >
             Go to Dashboard
           </button>

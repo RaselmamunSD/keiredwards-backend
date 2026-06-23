@@ -243,14 +243,27 @@ export default function DocumentsAndImages() {
 
   const handlePurchaseStorage = async (plan: StoragePlan) => {
     try {
-      const res = await api.saveVaultFiles({ total_storage_gb: plan.gb });
-      setTotalStorageGB(res.data.storage_config.total_storage_gb);
-      if (res.data.storage_plans) {
-        setStoragePlans(res.data.storage_plans);
+      const priceNum = parseFloat(plan.price.replace("$", ""));
+      if (isNaN(priceNum)) {
+        throw new Error("Invalid price for the selected plan.");
       }
-      setAlertMessage(`Successfully upgraded to ${plan.gb} GB storage!`);
+      localStorage.setItem("checkout_amount", priceNum.toString());
+      localStorage.setItem(
+        "checkout_order_items",
+        JSON.stringify([
+          { label: `${plan.gb} GB Storage Plan`, price: priceNum }
+        ])
+      );
+      localStorage.setItem(
+        "checkout_metadata",
+        JSON.stringify({
+          type: "storage_upgrade",
+          gb: plan.gb
+        })
+      );
+      window.location.href = "/payment";
     } catch (err) {
-      setAlertMessage(err instanceof Error ? err.message : "Failed to upgrade storage plan.");
+      setAlertMessage(err instanceof Error ? err.message : "Failed to initiate payment.");
     }
   };
 

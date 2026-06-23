@@ -138,6 +138,17 @@ export default function PaymentPage({
   const initiatePayment = async (method: "paypal" | "card") => {
     setApiError("");
     setStep("processing");
+
+    let customMetadata: Record<string, unknown> = {};
+    const savedMeta = localStorage.getItem("checkout_metadata");
+    if (savedMeta) {
+      try {
+        customMetadata = JSON.parse(savedMeta);
+      } catch (e) {
+        console.error("Failed to parse custom metadata:", e);
+      }
+    }
+
     try {
       const response = await api.paymentsCreate({
         amount,
@@ -146,10 +157,14 @@ export default function PaymentPage({
           merchantName,
           method,
           orderItems,
+          ...customMetadata,
         },
       });
       const checkoutUrl = response.data.checkout_url;
       if (checkoutUrl) {
+        localStorage.removeItem("checkout_amount");
+        localStorage.removeItem("checkout_order_items");
+        localStorage.removeItem("checkout_metadata");
         window.location.href = checkoutUrl;
         return;
       }

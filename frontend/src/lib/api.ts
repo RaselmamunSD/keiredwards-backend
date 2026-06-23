@@ -1,5 +1,9 @@
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  (typeof window !== "undefined"
+    ? (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+      ? (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000")
+      : window.location.origin)
+    : (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000"));
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 

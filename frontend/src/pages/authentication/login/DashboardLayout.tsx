@@ -34,6 +34,27 @@ export default function DashboardLayout() {
     }
   }, [authLoading, isLoggedIn, router]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab") as DashboardTab;
+      if (
+        tabParam &&
+        [
+          "check-in-email",
+          "check-in-schedule",
+          "trusted-recipients",
+          "email-to-recipients",
+          "press-release",
+          "documents-and-images",
+          "setup-accounting",
+        ].includes(tabParam)
+      ) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
+
   const loadDashboardData = async () => {
     try {
       const [summaryRes, analyticsRes, scheduleRes, accountingRes] = await Promise.all([

@@ -22,7 +22,7 @@ class PapylGatewayClient:
 
     def create_payment(self, *, amount, currency, transaction_id, callback_url):
         # Fallback mock mode when papyl credentials are not configured.
-        if not self.api_key:
+        if not self.api_key or self.api_key == "your_papyl_api_key":
             reference = f"papyl_mock_{uuid.uuid4().hex[:16]}"
             return {
                 "reference": reference,
@@ -58,7 +58,7 @@ class PapylGatewayClient:
         }
 
     def verify_payment(self, reference):
-        if not self.api_key:
+        if not self.api_key or self.api_key == "your_papyl_api_key":
             return {"status": "completed", "raw": {"mode": "mock", "reference": reference}}
 
         try:

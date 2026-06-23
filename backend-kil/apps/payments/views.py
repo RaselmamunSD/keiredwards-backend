@@ -108,9 +108,26 @@ class PaymentVerifyView(APIView):
             "failed": Payment.PaymentStatus.FAILED,
             "cancelled": Payment.PaymentStatus.CANCELLED,
         }
+        old_status = payment.status
         payment.status = status_map.get(result["status"], Payment.PaymentStatus.PENDING)
         payment.metadata = {**payment.metadata, "verification": result["raw"]}
         payment.save(update_fields=["status", "metadata", "updated_at"])
+
+        if payment.status == Payment.PaymentStatus.COMPLETED and old_status != Payment.PaymentStatus.COMPLETED:
+            metadata = payment.metadata or {}
+            if metadata.get("type") == "storage_upgrade":
+                gb_val = metadata.get("gb")
+                if gb_val:
+                    try:
+                        gb_int = int(gb_val)
+                        from apps.dashboard.models import StorageConfig
+                        storage_config, created = StorageConfig.objects.get_or_create(user=payment.user)
+                        storage_config.total_storage_gb = gb_int
+                        storage_config.save()
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error upgrading storage for user {payment.user.id}: {e}")
 
         return success_response(
             "Payment verified successfully.",

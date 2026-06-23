@@ -1,8 +1,18 @@
 import axios from "axios";
 
 // Clean up env URL to just be the host/origin (e.g. http://127.0.0.1:8000)
-const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-const hostUrl = envUrl.replace(/(?:\/api\/v1)+.*$/, "").replace(/\/$/, "");
+const getBaseURL = () => {
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      return envUrl.replace(/(?:\/api\/v1)+.*$/, "").replace(/\/$/, "");
+    }
+    return window.location.origin;
+  }
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  return envUrl.replace(/(?:\/api\/v1)+.*$/, "").replace(/\/$/, "");
+};
+const hostUrl = getBaseURL();
 
 // Create a global axios instance
 const api = axios.create({
