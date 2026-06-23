@@ -128,6 +128,36 @@ class PaymentVerifyView(APIView):
                         import logging
                         logger = logging.getLogger(__name__)
                         logger.error(f"Error upgrading storage for user {payment.user.id}: {e}")
+            elif metadata.get("type") == "press_release_upgrade":
+                tier_val = metadata.get("tier")
+                if tier_val is not None:
+                    try:
+                        tier_int = int(tier_val)
+                        from apps.dashboard.models import PressReleaseConfig
+                        press_config, created = PressReleaseConfig.objects.get_or_create(
+                            user=payment.user,
+                            defaults={
+                                "template": (
+                                    "URGENT: Critical Information Released by [Your Name]\n\n"
+                                    "This press release is being distributed in accordance with a pre-arranged security protocol. "
+                                    "The account holder has missed their scheduled check-in, triggering this automatic distribution.\n\n"
+                                    "The following information has been secured and is now available to designated recipients and the public:\n\n"
+                                    "[Brief description of what the information contains]\n\n"
+                                    "This release was configured in advance as a protective measure. All materials have been encrypted and verified for authenticity.\n\n"
+                                    "For access to the complete documentation, please visit the secure link provided to verified recipients.\n\n"
+                                    "Contact Information:\n"
+                                    "Distributed via: I Was Killed For This Information\n"
+                                    "Date: [Auto-generated]\n"
+                                    "Reference ID: [Auto-generated]"
+                                )
+                            }
+                        )
+                        press_config.current_tier = tier_int
+                        press_config.save()
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error upgrading press release tier for user {payment.user.id}: {e}")
 
         return success_response(
             "Payment verified successfully.",

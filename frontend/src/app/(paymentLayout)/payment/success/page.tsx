@@ -10,6 +10,7 @@ function PaymentSuccessContent() {
   const reference = useMemo(() => (params ? params.get("reference") || "" : ""), [params]);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [message, setMessage] = useState("Verifying payment...");
+  const [redirectTab, setRedirectTab] = useState("documents-and-images");
 
   useEffect(() => {
     const verify = async () => {
@@ -25,6 +26,9 @@ function PaymentSuccessContent() {
         setMessage(
           `Payment ${result.data.payment.status} (TX: ${result.data.payment.transaction_id}).`
         );
+        if (result.data.payment.metadata?.type === "press_release_upgrade") {
+          setRedirectTab("press-release");
+        }
       } catch (error) {
         setStatus("error");
         setMessage(error instanceof Error ? error.message : "Payment verification failed.");
@@ -47,7 +51,7 @@ function PaymentSuccessContent() {
         <div className="mt-6 flex gap-3">
           <button
             className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm cursor-pointer"
-            onClick={() => router.push("/dashboard?tab=documents-and-images")}
+            onClick={() => router.push(`/dashboard?tab=${redirectTab}`)}
           >
             Go to Dashboard
           </button>

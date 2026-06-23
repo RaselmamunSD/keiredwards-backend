@@ -24,9 +24,9 @@ Reference ID: [Auto-generated]`;
 
 // NOTE FOR ADMIN: These tiers should be configurable via admin panel (count + price)
 const REACH_TIERS = [
-  { count: "250", label: "Media Outlets", badge: "STANDARD (CURRENT)", isCurrent: true, price: null },
-  { count: "500", label: "Media Outlets", badge: null, isCurrent: false, price: "$495" },
-  { count: "1,000+", label: "Media Outlets", badge: null, isCurrent: false, price: "$695" },
+  { count: "250", label: "Media Outlets", price: null },
+  { count: "500", label: "Media Outlets", price: "$495" },
+  { count: "1,000+", label: "Media Outlets", price: "$695" },
 ];
 
 // ── Alert Modal ───────────────────────────────────────────────────────────────
@@ -61,6 +61,8 @@ export default function PressRelease() {
 
   // ── Alert Modal State ──
   const [alertMessage, setAlertMessage] = useState("");
+
+  const safeCurrentTier = currentTier >= 0 && currentTier < REACH_TIERS.length ? currentTier : 0;
 
   useEffect(() => {
     const load = async () => {
@@ -110,14 +112,40 @@ export default function PressRelease() {
     setIsEditing(false);
   };
 
-  // FIX: Upgrade button — should NOT change tier for free, redirect to payment
-  const handleUpgradeClick = () => {
-    setAlertMessage("To upgrade your plan, please contact support or visit the billing section.");
+  const handleUpgradeTier = async (tierIndex: number, priceStr: string | null) => {
+    if (priceStr === null) return;
+    try {
+      const priceNum = parseFloat(priceStr.replace("$", ""));
+      if (isNaN(priceNum)) {
+        throw new Error("Invalid price for the selected tier.");
+      }
+      localStorage.setItem("checkout_amount", priceNum.toString());
+      localStorage.setItem(
+        "checkout_order_items",
+        JSON.stringify([
+          { label: `${REACH_TIERS[tierIndex].count} Media Outlets Upgrade`, price: priceNum }
+        ])
+      );
+      localStorage.setItem(
+        "checkout_metadata",
+        JSON.stringify({
+          type: "press_release_upgrade",
+          tier: tierIndex
+        })
+      );
+      window.location.href = "/payment";
+    } catch (err) {
+      setAlertMessage(err instanceof Error ? err.message : "Failed to initiate payment.");
+    }
   };
 
-  // FIX: Order button — was not working
-  const handleOrderClick = () => {
-    setAlertMessage("To place an order, please contact support or visit the billing section.");
+  const handleUpgradeNext = () => {
+    const nextTierIndex = safeCurrentTier + 1;
+    if (nextTierIndex < REACH_TIERS.length) {
+      handleUpgradeTier(nextTierIndex, REACH_TIERS[nextTierIndex].price);
+    } else {
+      setAlertMessage("You are already at the highest tier available. For custom requirements, please contact support.");
+    }
   };
 
   return (
@@ -152,7 +180,7 @@ export default function PressRelease() {
               </span>
             </p>
             <p className="text-green-600 text-sm mt-0.5">
-              Configured for {REACH_TIERS[currentTier].count} media organizations
+              Configured for {REACH_TIERS[safeCurrentTier].count} media organizations
             </p>
           </div>
         </div>
@@ -172,7 +200,7 @@ export default function PressRelease() {
         </div>
         <p className="text-sm text-gray-700 mb-3">
           Upon a failure to Check-In, you have selected a press release of{" "}
-          <span className="text-blue-600 font-bold">{REACH_TIERS[currentTier].count} Media Organizations.</span>
+          <span className="text-blue-600 font-bold">{REACH_TIERS[safeCurrentTier].count} Media Organizations.</span>
         </p>
         <div className="border border-gray-200 bg-white p-3 inline-block rounded-xl">
           <p className="text-xs text-gray-500 mb-0.5">The category selected is:</p>
@@ -253,15 +281,15 @@ export default function PressRelease() {
           <div className="flex gap-2">
             {/* FIX: UPGRADE button now shows modal instead of doing nothing */}
             <button
-              onClick={handleUpgradeClick}
-              className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors"
+              onClick={handleUpgradeNext}
+              className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors cursor-pointer"
             >
               UPGRADE
             </button>
             {/* FIX: ORDER button now shows modal instead of doing nothing */}
             <button
-              onClick={handleOrderClick}
-              className="border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold px-5 py-2 rounded-lg transition-colors"
+              onClick={handleUpgradeNext}
+              className="border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold px-5 py-2 rounded-lg transition-colors cursor-pointer"
             >
               ORDER
             </button>
@@ -272,30 +300,33 @@ export default function PressRelease() {
           {REACH_TIERS.map((tier, index) => (
             <div
               key={index}
-              className={`border rounded-xl p-5 flex flex-col gap-3 transition-colors ${currentTier === index
+              className={`border rounded-xl p-5 flex flex-col gap-3 transition-colors ${safeCurrentTier === index
                   ? "border-green-400 bg-green-50"
                   : "border-gray-200 bg-white"
                 }`}
             >
               <div>
-                <p className={`text-2xl font-black ${currentTier === index ? "text-green-600" : "text-gray-800"}`}>
+                <p className={`text-2xl font-black ${safeCurrentTier === index ? "text-green-600" : "text-gray-800"}`}>
                   {tier.count}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">{tier.label}</p>
               </div>
 
-              {currentTier === index ? (
+              {safeCurrentTier === index ? (
                 <span className="inline-block border border-green-500 text-green-600 text-xs font-bold px-3 py-1 rounded-lg w-fit">
-                  STANDARD (CURRENT)
+                  {index === 0 ? "STANDARD (CURRENT)" : "CURRENT TIER"}
                 </span>
-              ) : (
-                // FIX: No longer calls setCurrentTier — user cannot upgrade for free
+              ) : index > safeCurrentTier ? (
                 <button
-                  onClick={handleUpgradeClick}
+                  onClick={() => handleUpgradeTier(index, tier.price)}
                   className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-4 py-2 rounded-lg w-fit transition-colors cursor-pointer"
                 >
                   UPGRADE — {tier.price}
                 </button>
+              ) : (
+                <span className="inline-block border border-gray-300 text-gray-500 text-xs font-bold px-3 py-1 rounded-lg w-fit">
+                  INCLUDED
+                </span>
               )}
             </div>
           ))}

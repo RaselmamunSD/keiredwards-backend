@@ -203,7 +203,7 @@ export const api = {
       payload
     ),
   paymentsVerify: (reference: string) =>
-    authorizedRequest<{ payment: { status: string; transaction_id: string } }>(
+    authorizedRequest<{ payment: { status: string; transaction_id: string; metadata?: Record<string, any> } }>(
       "payments/verify/",
       "POST",
       { reference }
