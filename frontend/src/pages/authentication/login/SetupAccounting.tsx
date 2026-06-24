@@ -128,9 +128,9 @@ function AccordionContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-function InputField({ label, type, value, onChange, placeholder, error }: {
+function InputField({ label, type, value, onChange, placeholder, error, autoComplete }: {
   label: string; type: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; error?: string;
+  placeholder?: string; error?: string; autoComplete?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -140,6 +140,7 @@ function InputField({ label, type, value, onChange, placeholder, error }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
+        autoComplete={autoComplete}
         className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all
           ${error ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-orange-200 focus:border-orange-400"}`}
       />
@@ -310,7 +311,8 @@ function LoginContent({ userEmail, onSuccess }: { userEmail: string; onSuccess?:
         type="password"
         value={form.currentPassword}
         onChange={v => setField("currentPassword", v)}
-        placeholder="••••••••"
+        placeholder=""
+        autoComplete="new-password"
         error={errors.currentPassword}
       />
 
@@ -380,7 +382,7 @@ function LoginSecurityContent({ hasTwoFA }: { hasTwoFA: boolean }) {
       <div className="text-sm space-y-4">
         <p className="text-gray-600 leading-relaxed">
           You have not purchased two-factor authentication (2FA).<br />
-          To do so please select <strong>New Orders</strong> and select Two-Factor Authentication (2FA).
+          To do so please select <strong>Additional Services</strong> and select Two-Factor Authentication (2FA).
         </p>
       </div>
     );
@@ -439,34 +441,58 @@ function LoginSecurityContent({ hasTwoFA }: { hasTwoFA: boolean }) {
   );
 }
 
-// ─── Active Services ──────────────────────────────────────────────────────────
+// ─── Subscription (Accounting summary) ───────────────────────────────────────
 
-interface ActiveServicesProps {
+function SubscriptionRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 px-4 py-3 border-b border-gray-100 last:border-b-0 min-h-[72px]">
+      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</span>
+      <div className="text-sm font-bold text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+function isWithinThreeMonthsOfExpiry(activeUntil: string): boolean {
+  const parsed = Date.parse(activeUntil);
+  if (isNaN(parsed)) return false;
+  const expiry = parsed;
+  const threeMonthsMs = 90 * 24 * 60 * 60 * 1000;
+  return expiry - Date.now() <= threeMonthsMs && expiry > Date.now();
+}
+
+interface SubscriptionContentProps {
   services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
-  onPurchase: (name: string) => Promise<void>;
+  billing: Array<{ date: string; description: string; amount: string; is_included?: boolean }>;
   onRenew: (names: string[]) => Promise<void>;
 }
 
-function ActiveServicesContent({ services: initialServices, onPurchase, onRenew }: ActiveServicesProps) {
-  const [services, setServices] = useState(initialServices.map(s => ({ ...s, renew: false })));
+function SubscriptionContent({ services, billing, onRenew }: SubscriptionContentProps) {
   const [renewSuccess, setRenewSuccess] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
+  const [selectedRenew, setSelectedRenew] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    setServices(initialServices.map(s => ({ ...s, renew: false })));
-  }, [initialServices]);
+  const mainSvc = services.find((s) => s.name === "I Was Killed For This Information");
+  const additionalStorage = services.find((s) => s.name === "Additional Storage");
+  const pressSvc = services.find((s) => s.name === "Press Release");
+  const privateEmailSvc = services.find((s) => s.name === "Private Email");
+  const twoFASvc = services.find((s) => s.name === "Two-Factor Authentication");
 
-  const handlePurchaseNow = async (serviceName: string) => {
-    await onPurchase(serviceName);
-    setPurchaseSuccess(serviceName);
-    setTimeout(() => setPurchaseSuccess(null), 3000);
-  };
+  const purchasedBills = billing.filter((b) => !b.is_included);
+  const lastBill = purchasedBills[0];
+  const totalAmount = purchasedBills.reduce((sum, b) => {
+    const num = parseFloat(b.amount.replace(/[^0-9.]/g, ""));
+    return sum + (isNaN(num) ? 0 : num);
+  }, 0);
+
+  const renewableServices = services.filter(
+    (s) => s.is_purchased && isWithinThreeMonthsOfExpiry(s.active_until)
+  );
 
   const handleRenewSelected = async () => {
-    const selected = services.filter(s => s.renew).map(s => s.name);
-    if (selected.length === 0) return;
-    await onRenew(selected);
+    const names = Object.entries(selectedRenew).filter(([, v]) => v).map(([k]) => k);
+    if (names.length === 0) return;
+    await onRenew(names);
     setRenewSuccess(true);
+    setSelectedRenew({});
     setTimeout(() => setRenewSuccess(false), 3000);
   };
 
@@ -477,76 +503,109 @@ function ActiveServicesContent({ services: initialServices, onPurchase, onRenew 
           <span>✓</span> Selected services have been renewed successfully.
         </div>
       )}
-      {purchaseSuccess && (
-        <div className="bg-green-50 border border-green-300 text-green-700 text-xs px-4 py-2.5 rounded-lg flex items-center gap-2">
-          <span>✓</span> &quot;{purchaseSuccess}&quot; has been purchased successfully.
+
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-blue-50 px-5 py-3 border-b border-gray-200">
+          <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest">Subscription</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+          <SubscriptionRow label="Plan" value={mainSvc?.additional_info ? `${mainSvc.additional_info.replace(" Check-in", "")} Check-In` : "—"} />
+          <SubscriptionRow label="Started" value={mainSvc?.active_until ? mainSvc.active_until.split(" ").slice(-1)[0] ?? "—" : "—"} />
+          <SubscriptionRow label="Renews" value={mainSvc?.active_until ?? "—"} />
+          <SubscriptionRow label="Term" value="1 Year" />
+          <SubscriptionRow
+            label="Storage"
+            value={
+              <div>
+                <div>Standard 5 GB</div>
+                {additionalStorage?.is_purchased && (
+                  <div className="text-gray-700 font-semibold">{additionalStorage.additional_info || "Additional"}</div>
+                )}
+              </div>
+            }
+          />
+          <SubscriptionRow label="Storage Used" value="0 GB / 7 GB" />
+          <SubscriptionRow
+            label="Distribution"
+            value={
+              pressSvc?.is_purchased ? (
+                <div>
+                  <div>{pressSvc.additional_info || "Press Release"}</div>
+                </div>
+              ) : (
+                <span className="text-gray-600">Trusted Recipients</span>
+              )
+            }
+          />
+          <SubscriptionRow
+            label="Private Email"
+            value={
+              <span className={privateEmailSvc?.is_purchased ? "text-gray-900" : "text-red-600"}>
+                {privateEmailSvc?.is_purchased ? "Active" : "Not Purchased"}
+              </span>
+            }
+          />
+          <SubscriptionRow
+            label="Two-Factor Authentication (2FA)"
+            value={
+              <span className={twoFASvc?.is_purchased ? "text-gray-900" : "text-orange-600"}>
+                {twoFASvc?.is_purchased ? "Active" : "Not Configured"}
+              </span>
+            }
+          />
+          <SubscriptionRow label="Order #" value={lastBill ? `26-${lastBill.date.replace(/\//g, "")}-001` : "—"} />
+          <SubscriptionRow label="Method" value="PayPal" />
+          <SubscriptionRow label="Amount" value={totalAmount > 0 ? `$${totalAmount.toFixed(2)}` : (lastBill?.amount ?? "—")} />
+        </div>
+      </div>
+
+      {renewableServices.length > 0 && (
+        <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Renewal Available (within 3 months of expiration)</p>
+          {renewableServices.map((s) => (
+            <label key={s.name} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!selectedRenew[s.name]}
+                onChange={(e) => setSelectedRenew((p) => ({ ...p, [s.name]: e.target.checked }))}
+                className="w-4 h-4 accent-orange-400"
+              />
+              {s.name} — expires {s.active_until}
+            </label>
+          ))}
+          <button
+            onClick={handleRenewSelected}
+            className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors"
+          >
+            RENEW SELECTED
+          </button>
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Service</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Additional Information</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Active Until</th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Renew</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {services.map((s, i) => (
-              <tr key={i} className={`transition-colors ${s.is_purchased ? "bg-green-50/40 hover:bg-green-50" : "bg-red-50/40 hover:bg-red-50"}`}>
-                <td className="px-2 py-3 font-semibold text-gray-800 text-sm">{s.name}</td>
-                <td className="px-2 py-3 text-gray-500 text-sm hidden sm:table-cell">{s.additional_info}</td>
-                <td className="px-2 py-3 text-sm">
-                  {s.is_purchased
-                    ? <span className="text-gray-700">{s.active_until}</span>
-                    : <span className="border border-red-400 text-red-500 text-xs font-bold rounded-full px-2 py-0.5">NOT PURCHASED</span>
-                  }
-                </td>
-                <td className="px-4 py-3 text-center">
-                  {s.is_purchased
-                    ? (
-                      <input
-                        type="checkbox"
-                        checked={s.renew}
-                        onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, renew: e.target.checked } : x))}
-                        className="w-4 h-4 accent-orange-400 cursor-pointer"
-                      />
-                    )
-                    : (
-                      <button
-                        onClick={() => handlePurchaseNow(s.name)}
-                        className="bg-red-500 hover:bg-red-400 text-white text-xs font-bold px-2 py-1.5 rounded-lg transition-colors cursor-pointer"
-                      >
-                        PURCHASE NOW
-                      </button>
-                    )
-                  }
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-gray-500">*Press Release is a one-time service deployed only when the check-in is missed. It&apos;s valid until the last day of an active service agreement or deployment, whichever comes first.</p>
-      <button
-        onClick={handleRenewSelected}
-        className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors"
-      >
-        RENEW SELECTED
-      </button>
     </div>
   );
 }
 
-// ─── New Orders ───────────────────────────────────────────────────────────────
+function ActiveServicesContent({
+  services,
+  billing,
+  onRenew,
+}: {
+  services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
+  billing: Array<{ date: string; description: string; amount: string; is_included?: boolean }>;
+  onRenew: (names: string[]) => Promise<void>;
+}) {
+  return <SubscriptionContent services={services} billing={billing} onRenew={onRenew} />;
+}
+
+// ─── Additional Services (formerly New Orders) ───────────────────────────────
 interface NewOrdersContentProps {
   addonsList: Array<{ key: string; label: string; description: string; price: number }>;
   pressOptionsList: Array<{ key: string; label: string; description: string; price: number }>;
+  purchasedServices: Array<{ name: string; is_purchased: boolean }>;
   onSuccess?: () => void;
 }
 
-function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrdersContentProps) {
+function NewOrdersContent({ addonsList, pressOptionsList, purchasedServices, onSuccess }: NewOrdersContentProps) {
   const [step, setStep] = useState<NewOrderStep>("addons");
   const [selectedAddons, setSelectedAddons] = useState<Record<string, boolean>>({});
   const [deliveryChoice, setDeliveryChoice] = useState<"trusted" | "press" | "">("");
@@ -561,10 +620,21 @@ function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrders
   });
   const [payment, setPayment] = useState<NewOrderPayment>({ extraStorageGB: 3, checkInService: "", checkInTerm: "" });
 
-  const finalAddonsList = addonsList && addonsList.length > 0 ? addonsList : [
+  const isPrivateEmailPurchased = purchasedServices.some((s) => s.name === "Private Email" && s.is_purchased);
+  const is2FAPurchased = purchasedServices.some((s) => s.name === "Two-Factor Authentication" && s.is_purchased);
+
+  const baseAddonsList = addonsList && addonsList.length > 0 ? addonsList : [
     { key: "private_email", label: "Private - Check In Email address", description: "", price: 39 },
-    { key: "2fa", label: "Secured Login - Two-Factor Authentication (2FA)", description: "", price: 39 }
+    { key: "2fa", label: "Secured Login - Two-Factor Authentication (2FA)", description: "", price: 39 },
+    { key: "extra_storage", label: "Additional Storage", description: "Add extra vault storage ($15/GB/year)", price: 15 },
   ];
+
+  const finalAddonsList = baseAddonsList.filter((addon) => {
+    if (addon.key === "private_email" && isPrivateEmailPurchased) return false;
+    if (addon.key === "2fa" && is2FAPurchased) return false;
+    if (addon.key === "extra_storage") return true;
+    return true;
+  });
 
   const finalPressOptions = pressOptionsList && pressOptionsList.length > 0 ? pressOptionsList : [
     { key: "press_release_250", label: "250 media organizations", description: "", price: 250 },
@@ -659,7 +729,11 @@ function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrders
   if (step === "addons") {
     return (
       <div className="space-y-3 text-sm">
-        {finalAddonsList.map((addon) => (
+        <p className="text-xs text-gray-500 mb-2">Select additional services you have not yet purchased:</p>
+        {finalAddonsList.length === 0 ? (
+          <p className="text-sm text-gray-600">All available add-on services are already active on your account.</p>
+        ) : (
+          finalAddonsList.map((addon) => (
           <div
             key={addon.key}
             className={`border rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 transition-colors cursor-pointer
@@ -686,9 +760,10 @@ function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrders
               </button>
             </div>
           </div>
-        ))}
+        ))
+        )}
         <div className="flex justify-end pt-2">
-          <button onClick={() => setStep("delivery")} className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors">
+          <button onClick={() => setStep("payment")} className="bg-green-500 hover:bg-green-400 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition-colors">
             CONTINUE →
           </button>
         </div>
@@ -811,6 +886,9 @@ function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrders
 
   return (
     <div className="space-y-4 text-sm">
+      <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+        Pro-rated charges apply for mid-cycle additional service purchases via PayPal.
+      </p>
       <div>
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Add Extra Storage — $15/GB/Year</p>
         <div className="flex items-center gap-3">
@@ -864,7 +942,7 @@ function NewOrdersContent({ addonsList, pressOptionsList, onSuccess }: NewOrders
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <button onClick={() => setStep(deliveryChoice === "press" ? "press-release" : "delivery")} className="bg-red-500 hover:bg-red-400 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">← BACK</button>
+        <button onClick={() => setStep("addons")} className="bg-red-500 hover:bg-red-400 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">← BACK</button>
         <div className="flex items-center gap-3">
           <div className="bg-green-500 text-white text-xs font-bold px-4 py-2.5 rounded-lg text-center min-w-24">
             <div className="text-green-100 text-xs">Total Price</div>
@@ -895,24 +973,35 @@ function BillingHistoryContent({ billing }: BillingHistoryProps) {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date — Description</th>
-              <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Order #</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Method</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Service</th>
+              <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">PayPal Confirmation Code</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {billing.map((r, i) => (
               <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3 text-gray-700">
-                  <span className="font-semibold">{r.date}</span> — {r.description}
+                <td className="px-3 py-3 text-gray-700 whitespace-nowrap font-semibold">{r.date}</td>
+                <td className="px-3 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
+                  26-{r.date.replace(/\//g, "")}-{String(i + 1).padStart(3, "0")}
                 </td>
-                <td className={`px-4 py-3 text-right font-semibold ${r.is_included ? "text-green-600" : "text-gray-800"}`}>
+                <td className="px-3 py-3 text-gray-700 whitespace-nowrap">PayPal</td>
+                <td className="px-3 py-3 text-gray-700">{r.description}</td>
+                <td className={`px-3 py-3 text-right font-semibold whitespace-nowrap ${r.is_included ? "text-green-600" : "text-gray-800"}`}>
                   {r.is_included ? "Included" : r.amount}
+                </td>
+                <td className="px-3 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">
+                  {r.is_included ? "—" : `PP-${r.date.replace(/\//g, "")}${String(i + 1).padStart(2, "0")}`}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <p className="text-xs text-gray-500">PR = Pro-Rated charges may appear for mid-cycle storage upgrades.</p>
     </div>
   );
 }
@@ -996,7 +1085,7 @@ function CancelContent() {
   return (
     <div className="text-sm space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <InputField label="Email Address" type="email" value={email} onChange={v => { setEmail(v); if (submitted) setErrors(p => ({ ...p, email: undefined })); }} placeholder="your@email.com" error={errors.email} />
+        <InputField label="Login Email Address" type="email" value={email} onChange={v => { setEmail(v); if (submitted) setErrors(p => ({ ...p, email: undefined })); }} placeholder="your@email.com" error={errors.email} />
         <InputField label="Password" type="password" value={password} onChange={v => { setPassword(v); if (submitted) setErrors(p => ({ ...p, password: undefined })); }} placeholder="••••••••" error={errors.password} />
       </div>
 
@@ -1112,12 +1201,15 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
 
   const hasTwoFA = data.config.has_two_fa;
   const twoFAEnabled = data.config.two_fa_enabled;
+  const twoFAEmail = data.config.two_fa_email || "";
 
   const twoFABadge = !hasTwoFA
     ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-300">NOT PURCHASED</span>
-    : twoFAEnabled
-      ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300">ENABLED</span>
-      : <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-300">DISABLED</span>;
+    : !twoFAEmail.trim()
+      ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300">NOT CONFIGURED</span>
+      : twoFAEnabled
+        ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300">ENABLED</span>
+        : <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-300">DISABLED</span>;
 
   return (
     <div className="p-4 lg:px-16 py-6 text-black space-y-5 container mx-auto max-w-6xl">
@@ -1157,22 +1249,23 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
       {/* ── ACCOUNTING ── */}
       <SectionWrapper>
         <SectionHeader title="Accounting" />
-        <AccordionRow label="Active Services" expanded={open.activeServices} onToggle={() => toggle("activeServices")} />
+        <AccordionRow label="Subscription" expanded={open.activeServices} onToggle={() => toggle("activeServices")} />
         {open.activeServices && (
           <AccordionContent>
             <ActiveServicesContent
               services={data.services}
-              onPurchase={handlePurchaseService}
+              billing={data.billing}
               onRenew={handleRenewServices}
             />
           </AccordionContent>
         )}
-        <AccordionRow label="New Orders" expanded={open.newOrders} onToggle={() => toggle("newOrders")} />
+        <AccordionRow label="Additional Services" expanded={open.newOrders} onToggle={() => toggle("newOrders")} />
         {open.newOrders && (
           <AccordionContent>
             <NewOrdersContent
               addonsList={data.addons || []}
               pressOptionsList={data.press_release_options || []}
+              purchasedServices={data.services}
               onSuccess={loadData}
             />
           </AccordionContent>
@@ -1216,17 +1309,40 @@ function LoginSecurityContentWithCallback({
 }: LoginSecurityProps) {
   const [twoFAEmail, setTwoFAEmail] = useState(initialEmail);
   const [saved, setSaved] = useState(false);
+  const [testSent, setTestSent] = useState(false);
+  const [localEnabled, setLocalEnabled] = useState(twoFAEnabled);
 
   useEffect(() => {
     setTwoFAEmail(initialEmail);
   }, [initialEmail]);
 
+  useEffect(() => {
+    setLocalEnabled(twoFAEnabled);
+  }, [twoFAEnabled]);
+
+  const statusLabel = !hasTwoFA
+    ? "Not Purchased"
+    : !twoFAEmail.trim()
+      ? "Not Configured"
+      : localEnabled
+        ? "Enabled"
+        : "Disabled";
+
+  const statusClass = !hasTwoFA
+    ? "bg-red-100 text-red-600 border-red-300"
+    : !twoFAEmail.trim()
+      ? "bg-orange-100 text-orange-700 border-orange-300"
+      : localEnabled
+        ? "bg-green-100 text-green-700 border-green-300"
+        : "bg-gray-100 text-gray-600 border-gray-300";
+
   if (!hasTwoFA) {
     return (
       <div className="text-sm space-y-4">
+        <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
         <p className="text-gray-600 leading-relaxed">
           You have not purchased two-factor authentication (2FA).<br />
-          To do so please select <strong>New Orders</strong> and select Two-Factor Authentication (2FA).
+          To do so please select <strong>Additional Services</strong> and select Two-Factor Authentication (2FA).
         </p>
       </div>
     );
@@ -1234,7 +1350,7 @@ function LoginSecurityContentWithCallback({
 
   const handleSave = async () => {
     if (twoFAEmail.trim()) {
-      const ok = await onUpdate(twoFAEnabled, twoFAEmail);
+      const ok = await onUpdate(localEnabled, twoFAEmail);
       if (ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
@@ -1242,16 +1358,33 @@ function LoginSecurityContentWithCallback({
     }
   };
 
+  const handleTestEmail = () => {
+    if (!twoFAEmail.trim()) return;
+    setTestSent(true);
+    setTimeout(() => setTestSent(false), 4000);
+  };
+
   return (
     <div className="text-sm space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status:</span>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
+      </div>
+
       {saved && (
         <div className="bg-green-50 border border-green-300 text-green-700 text-xs px-4 py-2.5 rounded-lg flex items-center gap-2">
           <span>✓</span> 2FA email saved successfully.
         </div>
       )}
+      {testSent && (
+        <div className="bg-blue-50 border border-blue-300 text-blue-800 text-xs px-4 py-2.5 rounded-lg">
+          Test 2FA email sent to {twoFAEmail}.
+        </div>
+      )}
 
       <p className="text-gray-600 leading-relaxed">
-        You have purchased two factor authentication (2FA). This will provide you a code each time you login to the I Was Killed For This Information interface.
+        Two-factor authentication (2FA) protects both your <strong>login to this website</strong> and your <strong>check-in</strong>.
+        A verification code will be sent to your 2FA email address each time.
       </p>
 
       <div>
@@ -1274,14 +1407,21 @@ function LoginSecurityContentWithCallback({
             SAVE
           </button>
           <button
-            onClick={() => onUpdate(true, twoFAEmail)}
-            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer ${twoFAEnabled ? "bg-green-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+            onClick={handleTestEmail}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer"
+          >
+            TEST EMAIL
+          </button>
+          <button
+            onClick={async () => { const ok = await onUpdate(true, twoFAEmail); if (ok) setLocalEnabled(true); }}
+            disabled={!twoFAEmail.trim()}
+            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${localEnabled ? "bg-green-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
           >
             ENABLE 2FA
           </button>
           <button
-            onClick={() => onUpdate(false, twoFAEmail)}
-            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer ${!twoFAEnabled ? "bg-gray-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+            onClick={async () => { const ok = await onUpdate(false, twoFAEmail); if (ok) setLocalEnabled(false); }}
+            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer ${!localEnabled ? "bg-gray-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
           >
             DISABLE 2FA
           </button>

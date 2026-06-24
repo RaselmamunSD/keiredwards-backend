@@ -443,7 +443,7 @@ export default function Step4Storage({
     // Show tiered breakdown + discount info in sub-label
     const sub =
       p.discountPct > 0
-        ? `${breakdown} × ${effectiveYears} yr — ${p.discountPct}% off (save $${p.storageDiscountAmt.toFixed(0)})`
+        ? `${breakdown} × ${effectiveYears} yr — ${p.discountPct}% off (save $${p.storageDiscountAmt.toFixed(2)})`
         : `${breakdown} × ${effectiveYears} yr`;
     invoiceRows.push({
       label: `Additional Storage (${data.extraStorageGB} GB)`,

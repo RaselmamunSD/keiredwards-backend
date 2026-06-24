@@ -191,26 +191,28 @@ const Navbar = () => {
               </Link>
             )}
 
-            {/* Protect Truth — always visible, disabled only when nav locked */}
-            {navLocked ? (
-              <span
-                className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full border border-white/10 text-white/30 cursor-not-allowed select-none"
-                title="Not available on this page"
-              >
-                Protect Truth <MdKeyboardDoubleArrowRight />
-              </span>
-            ) : (
-              <Link
-                href="/register"
-                className={`flex items-center gap-1.5 cursor-pointer text-sm font-semibold px-5 py-2 rounded-full transition-all duration-200
-                  ${
-                    pathname === "/register"
-                      ? "border border-[#4CBB17] text-[#4CBB17]"
-                      : "border border-white/30 text-white hover:border-[#4CBB17] hover:text-[#4CBB17] hover:bg-red-50/10"
-                  }`}
-              >
-                Protect Truth <MdKeyboardDoubleArrowRight />
-              </Link>
+            {/* Protect Truth — hidden when logged in */}
+            {!isLoggedIn && (
+              navLocked ? (
+                <span
+                  className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full border border-white/10 text-white/30 cursor-not-allowed select-none"
+                  title="Not available on this page"
+                >
+                  Protect Truth <MdKeyboardDoubleArrowRight />
+                </span>
+              ) : (
+                <Link
+                  href="/register"
+                  className={`flex items-center gap-1.5 cursor-pointer text-sm font-semibold px-5 py-2 rounded-full transition-all duration-200
+                    ${
+                      pathname === "/register"
+                        ? "border border-[#4CBB17] text-[#4CBB17]"
+                        : "border border-white/30 text-white hover:border-[#4CBB17] hover:text-[#4CBB17] hover:bg-red-50/10"
+                    }`}
+                >
+                  Protect Truth <MdKeyboardDoubleArrowRight />
+                </Link>
+              )
             )}
           </div>
 
@@ -415,27 +417,29 @@ const Navbar = () => {
             </Link>
           )}
 
-          {/* Protect Truth — disabled when nav is locked */}
-          {navLocked ? (
-            <span
-              className="flex items-center justify-center gap-2 text-sm font-semibold px-5 py-3 rounded-full border border-white/10 text-white/25 cursor-not-allowed select-none w-full"
-              title="Not available on this page"
-            >
-              Protect Truth <MdKeyboardDoubleArrowRight className="w-4 h-4" />
-            </span>
-          ) : (
-            <Link
-              href="/register"
-              onClick={closeMenu}
-              className={`flex items-center justify-center gap-2 text-sm font-semibold px-5 py-3 rounded-full transition-all duration-200 w-full
-                ${
-                  pathname === "/register"
-                    ? "border border-[#4CBB17] text-[#4CBB17]"
-                    : "border border-white/30 text-white hover:border-[#4CBB17] hover:text-[#4CBB17] hover:bg-red-50/10"
-                }`}
-            >
-              Protect Truth <MdKeyboardDoubleArrowRight className="w-4 h-4" />
-            </Link>
+          {/* Protect Truth — hidden when logged in */}
+          {!isLoggedIn && (
+            navLocked ? (
+              <span
+                className="flex items-center justify-center gap-2 text-sm font-semibold px-5 py-3 rounded-full border border-white/10 text-white/25 cursor-not-allowed select-none w-full"
+                title="Not available on this page"
+              >
+                Protect Truth <MdKeyboardDoubleArrowRight className="w-4 h-4" />
+              </span>
+            ) : (
+              <Link
+                href="/register"
+                onClick={closeMenu}
+                className={`flex items-center justify-center gap-2 text-sm font-semibold px-5 py-3 rounded-full transition-all duration-200 w-full
+                  ${
+                    pathname === "/register"
+                      ? "border border-[#4CBB17] text-[#4CBB17]"
+                      : "border border-white/30 text-white hover:border-[#4CBB17] hover:text-[#4CBB17] hover:bg-red-50/10"
+                  }`}
+              >
+                Protect Truth <MdKeyboardDoubleArrowRight className="w-4 h-4" />
+              </Link>
+            )
           )}
         </div>
       </aside>

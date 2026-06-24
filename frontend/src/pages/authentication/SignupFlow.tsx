@@ -4,6 +4,8 @@
 // All global state lives here and is passed down as props.
 
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import Step1Signup from "./Step1Signup";
 import Step2Security from "./Step2Security";
 import Step3Recipients from "./Step3Recipients";
@@ -173,7 +175,31 @@ export default function SignupFlow() {
         />
       </div>
 
-      <div className="relative z-10 max-w-3xl mx-auto pt-2">
+      <div className="relative z-10 max-w-3xl mx-auto pt-6">
+        {/* ── Site Logo ── */}
+        <Link href="/" className="flex items-center justify-center gap-3 mb-2 group shrink-0">
+          <Image
+            src="/website_logo/logo.svg"
+            width={50}
+            height={50}
+            alt="I Was Killed For This Information"
+          />
+          <div className="flex flex-col justify-center leading-tight">
+            <span
+              className="block text-[1.5rem] uppercase leading-none tracking-wide text-white"
+              style={{ fontFamily: "var(--font-anton)", fontWeight: 400 }}
+            >
+              I WAS KILLED
+            </span>
+            <span
+              className="block text-[1rem] uppercase leading-none tracking-wide mt-1 text-[#EF3832]"
+              style={{ fontFamily: "var(--font-anton)", fontWeight: 400 }}
+            >
+              FOR THIS INFORMATION
+            </span>
+          </div>
+        </Link>
+
         <StepIndicator currentStep={currentStep} />
 
         {currentStep === 1 && (

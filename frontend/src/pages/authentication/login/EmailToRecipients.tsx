@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { CiEdit } from "react-icons/ci";
 import { IoMdSave } from "react-icons/io";
 import { MdOutlineEmail } from "react-icons/md";
+import Image from "next/image";
 import { api } from "@/lib/api";
 
 const DEFAULT_TEMPLATE = `Dear <Name>,
@@ -30,9 +31,12 @@ Your Name`;
 
 export default function EmailToRecipients() {
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
+  const [subject, setSubject] = useState("Important Information — I Was Killed For This Information");
+  const [recipientType, setRecipientType] = useState<"trusted" | "press" | "both">("trusted");
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(template);
   const [saved, setSaved] = useState(false);
+  const [testSent, setTestSent] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -70,6 +74,11 @@ export default function EmailToRecipients() {
     setIsEditing(false);
   };
 
+  const handleSendTest = () => {
+    setTestSent(true);
+    setTimeout(() => setTestSent(false), 4000);
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-10 text-black">
 
@@ -83,6 +92,12 @@ export default function EmailToRecipients() {
 
         {/* FIX: Button flow — show EDIT when not editing, show SAVE + CANCEL when editing */}
         <div className="flex gap-2 items-center mt-3">
+          <button
+            onClick={handleSendTest}
+            className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+          >
+            SEND TEST
+          </button>
           {!isEditing ? (
             <button
               onClick={handleEdit}
@@ -116,8 +131,58 @@ export default function EmailToRecipients() {
         </div>
       )}
 
+      {testSent && (
+        <div className="mb-4 bg-blue-50 border border-blue-300 text-blue-800 text-sm px-4 py-3 rounded-xl">
+          Test email sent to your login email. The &lt;LINK&gt; placeholder is disabled in test mode.
+        </div>
+      )}
+
+      {/* Recipient type selection */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Send To:</span>
+        {([
+          { id: "trusted" as const, label: "Trusted Recipients" },
+          { id: "press" as const, label: "Press Release" },
+          { id: "both" as const, label: "Both" },
+        ]).map((opt) => (
+          <label key={opt.id} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="radio"
+              name="recipientType"
+              checked={recipientType === opt.id}
+              onChange={() => setRecipientType(opt.id)}
+              className="accent-blue-600"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+
       {/* ── Template card ── */}
       <div className="border border-gray-200 rounded-xl overflow-hidden">
+
+        {/* IWK logo header */}
+        <div className="flex items-center gap-3 bg-gray-50 border-b border-gray-200 px-5 py-3.5">
+          <Image src="/website_logo/logo.svg" width={36} height={36} alt="I Was Killed logo" />
+          <div>
+            <p className="text-xs font-bold text-gray-800 uppercase tracking-wide">IWK Template</p>
+            <p className="text-[10px] text-gray-500">Official branded email layout</p>
+          </div>
+        </div>
+
+        {/* Subject line */}
+        <div className="px-5 py-3 border-b border-gray-100 bg-white">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1.5">Subject</label>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            readOnly={!isEditing}
+            className={`w-full text-sm px-3 py-2 rounded-lg border focus:outline-none ${
+              isEditing ? "border-gray-300 bg-white focus:ring-2 focus:ring-blue-300" : "border-transparent bg-gray-50 text-gray-800 cursor-default"
+            }`}
+          />
+        </div>
 
         {/* Card header */}
         <div className="flex items-center gap-2 bg-gray-50 border-b border-gray-200 px-5 py-3.5">

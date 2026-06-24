@@ -52,19 +52,21 @@ function AlertModal({ message, onClose }: { message: string; onClose: () => void
 }
 
 export default function PressRelease() {
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_PRESS_TEMPLATE);
   const [draft, setDraft] = useState(template);
   const [saved, setSaved] = useState(false);
   const [currentTier, setCurrentTier] = useState(0);
-  const [category, setCategory] = useState("Government corruption");
+  const [category, setCategory] = useState("");
   const [tiers, setTiers] = useState<Array<{ count: string; label: string; price: string | null }>>(REACH_TIERS);
 
   // ── Alert Modal State ──
+  const [subject, setSubject] = useState("URGENT: Critical Information Released");
   const [alertMessage, setAlertMessage] = useState("");
 
   const safeCurrentTier = currentTier >= 0 && currentTier < tiers.length ? currentTier : 0;
+  const isPurchased = isActive || category !== "" || safeCurrentTier > 0;
 
   useEffect(() => {
     const load = async () => {
@@ -149,10 +151,8 @@ export default function PressRelease() {
 
   const handleUpgradeNext = () => {
     const nextTierIndex = safeCurrentTier + 1;
-    if (nextTierIndex < tiers.length) {
-      handleUpgradeTier(nextTierIndex, tiers[nextTierIndex].price);
-    } else {
-      setAlertMessage("You are already at the highest tier available. For custom requirements, please contact support.");
+    if (nextTierIndex < tiers.length && tiers[nextTierIndex].price) {
+      void handleUpgradeTier(nextTierIndex, tiers[nextTierIndex].price);
     }
   };
 
@@ -194,7 +194,14 @@ export default function PressRelease() {
         </div>
         <button
           onClick={handleActiveToggle}
-          className={`text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${isActive ? "bg-red-500 hover:bg-red-400" : "bg-green-500 hover:bg-green-400"}`}
+          disabled={!isActive && !isPurchased}
+          className={`text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${
+            !isActive && !isPurchased
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : isActive
+              ? "bg-red-500 hover:bg-red-400"
+              : "bg-green-500 hover:bg-green-400"
+          }`}
         >
           {isActive ? "DISABLE PRESS RELEASE" : "ENABLE PRESS RELEASE"}
         </button>
@@ -248,6 +255,20 @@ export default function PressRelease() {
               </>
             )}
           </div>
+        </div>
+
+        {/* Subject line */}
+        <div className="px-5 py-3 border-b border-gray-100 bg-white">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1.5">Subject</label>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            readOnly={!isEditing}
+            className={`w-full text-sm px-3 py-2 rounded-lg border focus:outline-none ${
+              isEditing ? "border-gray-300 bg-white focus:ring-2 focus:ring-blue-300" : "border-transparent bg-gray-50 text-gray-800 cursor-default"
+            }`}
+          />
         </div>
 
         <textarea

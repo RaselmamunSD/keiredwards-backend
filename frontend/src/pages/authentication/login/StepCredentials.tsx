@@ -4,6 +4,8 @@
 
 import { LoginCredentials } from "@/Types/Types";
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { z } from "zod";
 import { api, tokenStorage, ApiRequestError } from "@/lib/api";
 import Swal from "sweetalert2";
@@ -125,18 +127,6 @@ export default function StepCredentials({ onSuccess }: Props) {
         refresh: response.data.refresh,
       });
 
-      // Show success message
-      await Swal.fire({
-        title: "Login Successful!",
-        text: `Welcome back, ${form.username}!`,
-        icon: "success",
-        confirmButtonText: "Continue",
-        confirmButtonColor: "#22c55e",
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-      });
-
-      // Call success handler to navigate
       onSuccess(form);
     } catch (error) {
       const message = error instanceof ApiRequestError 
@@ -155,7 +145,33 @@ export default function StepCredentials({ onSuccess }: Props) {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 w-full max-w-4xl">
+    <div className="flex flex-col items-center w-full max-w-4xl">
+
+      {/* ── Site Logo ── */}
+      <Link href="/" className="flex items-center gap-3 mb-10 group shrink-0">
+        <Image
+          src="/website_logo/logo.svg"
+          width={50}
+          height={50}
+          alt="I Was Killed For This Information"
+        />
+        <div className="flex flex-col justify-center leading-tight">
+          <span
+            className="block text-[1.5rem] uppercase leading-none tracking-wide text-white"
+            style={{ fontFamily: "var(--font-anton)", fontWeight: 400 }}
+          >
+            I WAS KILLED
+          </span>
+          <span
+            className="block text-[1rem] uppercase leading-none tracking-wide mt-1 text-[#EF3832]"
+            style={{ fontFamily: "var(--font-anton)", fontWeight: 400 }}
+          >
+            FOR THIS INFORMATION
+          </span>
+        </div>
+      </Link>
+
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 w-full">
 
       {/* ── Left: Login Form ── */}
       <div className="lg:w-88 shrink-0">
@@ -292,6 +308,8 @@ export default function StepCredentials({ onSuccess }: Props) {
             );
           })}
         </div>
+      </div>
+
       </div>
 
     </div>

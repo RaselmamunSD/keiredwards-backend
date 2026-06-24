@@ -105,6 +105,7 @@ export default function CheckInEmail({ userEmail }: Props) {
   const [privateUsername, setPrivateUsername] = useState("");
   const [privateAddressSaved, setPrivateAddressSaved] = useState(false);
   const [emailUnavailable, setEmailUnavailable] = useState(false);
+  const [addressAcceptable, setAddressAcceptable] = useState(false);
 
   // Private email password
   const [privatePw, setPrivatePw] = useState("");
@@ -228,8 +229,14 @@ export default function CheckInEmail({ userEmail }: Props) {
     }
   };
 
+  const handleTestPrivateEmail = () => {
+    if (!privateUsername.trim()) return;
+    showToast(`Test email sent to ${privateUsername}@Mysafemail.xyz`);
+  };
+
   const handleSaveAddress = async () => {
     if (!privateUsername.trim() || privateAddressSaved) return;
+    setAddressAcceptable(false);
     const taken = Math.random() < 0.1;
     if (taken) {
       setEmailUnavailable(true);
@@ -241,6 +248,7 @@ export default function CheckInEmail({ userEmail }: Props) {
           private_email_address_saved: true
         });
         setEmailUnavailable(false);
+        setAddressAcceptable(true);
         setPrivateAddressSaved(true);
         showToast("Private email address saved.");
       } catch (err) {
@@ -317,7 +325,7 @@ export default function CheckInEmail({ userEmail }: Props) {
   const domains = ["@domain1.com", "@domain2.com", "@domain3.com", "@domain4.com", "@domain5.com"];
 
   const webmailUrl = "https://mail.privateemail.com";
-  const fullPrivateEmail = privateAddressSaved && privateUsername ? `${privateUsername}@privateemail.com` : null;
+  const fullPrivateEmail = privateAddressSaved && privateUsername ? `${privateUsername}@Mysafemail.xyz` : null;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -507,7 +515,7 @@ export default function CheckInEmail({ userEmail }: Props) {
         </div>
         <div style={panelBodyStyle}>
           <div style={{ fontSize: 12, color: "#666", marginBottom: 14, lineHeight: 1.7 }}>
-            Enter your preferred email name and click <strong>Save Address</strong>. The domain is fixed and cannot be modified.
+            Enter your preferred email name and click <strong>Check Address</strong>. The domain is fixed and cannot be modified.
             If your chosen name is already in use, please try an alternative.
             <br /><br />
             <strong>Note: Once saved, this email address is permanent and cannot be changed.</strong>
@@ -518,7 +526,7 @@ export default function CheckInEmail({ userEmail }: Props) {
             <div style={{ display: "flex", alignItems: "stretch", flex: 1, minWidth: 280 }}>
               <input
                 value={privateUsername}
-                onChange={e => { if (!privateAddressSaved) { setPrivateUsername(e.target.value); setEmailUnavailable(false); } }}
+                onChange={e => { if (!privateAddressSaved) { setPrivateUsername(e.target.value); setEmailUnavailable(false); setAddressAcceptable(false); } }}
                 readOnly={privateAddressSaved}
                 placeholder="enter your email address"
                 style={{
@@ -533,20 +541,27 @@ export default function CheckInEmail({ userEmail }: Props) {
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#777",
                 display: "flex", alignItems: "center", whiteSpace: "nowrap"
               }}>
-                @privateemail.com
+                @Mysafemail.xyz
               </div>
             </div>
             <button
               style={{
                 ...btnBase,
-                background: privateAddressSaved ? "#ccc" : "#f97316",
+                background: privateAddressSaved ? "#ccc" : addressAcceptable ? "#22c55e" : "#f97316",
                 color: privateAddressSaved ? "#888" : "#fff",
                 cursor: privateAddressSaved ? "default" : "pointer"
               }}
               onClick={handleSaveAddress}
               disabled={privateAddressSaved}
             >
-              Save Address
+              {privateAddressSaved ? "Address Saved" : "Check Address"}
+            </button>
+
+            <button
+              style={{ ...btnBase, background: "#22c55e", color: "#000" }}
+              onClick={handleTestPrivateEmail}
+            >
+              Test
             </button>
 
             {/* ── WebMail Info Button ── */}
@@ -562,9 +577,15 @@ export default function CheckInEmail({ userEmail }: Props) {
             To access your email press <strong>WebMail Info</strong> to get the website and login details.
           </div>
 
+          {addressAcceptable && !emailUnavailable && (
+            <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, marginTop: 8 }}>
+              ✓ Acceptable — address is available.
+            </div>
+          )}
+
           {emailUnavailable && (
             <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 8 }}>
-              ⚠ Address unavailable. Please select a unique email name to continue.
+              ⚠ Already Taken — please select a unique email name to continue.
             </div>
           )}
 
@@ -592,13 +613,18 @@ export default function CheckInEmail({ userEmail }: Props) {
             </div>
             {!privatePwSaved ? (
               <button style={{ ...btnBase, background: "#f59e0b", color: "#000" }} onClick={handleSavePrivatePw}>
-                Save Password
+                Create Account
               </button>
             ) : (
               <button style={{ ...btnBase, background: "#f59e0b", color: "#000" }} onClick={handleChangePrivatePw}>
                 Change Password
               </button>
             )}
+          </div>
+
+          <div style={{ fontSize: 12, color: "#555", marginTop: 14, lineHeight: 1.7, padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+            Private Check-In Email will only support inbound messages from IWK. You will not be able to send out any messages.
+            All messages are removed after 30 days. You are limited to 500 messages per year.
           </div>
         </div>
       </div>

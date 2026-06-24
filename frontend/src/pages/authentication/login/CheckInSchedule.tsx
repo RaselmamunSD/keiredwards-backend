@@ -279,17 +279,17 @@ export default function CheckInSchedule({ onRefresh }: { onRefresh?: () => void 
 
       {/* ── Hero Service Banner ── */}
       <div className={`rounded-xl border mb-6 px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-        paused ? "bg-yellow-50 border-yellow-300" : "bg-green-50 border-green-200"
+        paused ? "bg-red-50 border-red-300" : "bg-green-50 border-green-200"
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <span className={`text-5xl font-black tracking-tight leading-none ${paused ? "text-yellow-600" : "text-green-600"}`}>
+          <span className={`text-5xl font-black tracking-tight leading-none ${paused ? "text-red-600" : "text-green-600"}`}>
             {purchasedPlan.toUpperCase()}
           </span>
           <div className="flex items-center gap-1.5">
             {paused ? (
               <>
-                <span className="text-yellow-500">⏸</span>
-                <span className="text-yellow-700 text-sm font-semibold">Check-In Service Paused</span>
+                <span className="text-red-500">⏸</span>
+                <span className="text-red-700 text-sm font-semibold">Check-In Service Paused</span>
               </>
             ) : (
               <>
@@ -302,14 +302,9 @@ export default function CheckInSchedule({ onRefresh }: { onRefresh?: () => void 
 
         <div className="flex flex-col items-start sm:items-end gap-2">
           <span className="text-sm text-blue-600 font-medium">
-            Service Renews on <span className="font-bold">{renewalDate}</span>
+            Next Check-In: <span className="font-bold">{renewalDate}</span>
           </span>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleUpgradeRenewal}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">
-              UPGRADE / RENEWAL OPTIONS
-            </button>
             <button
               onClick={handlePauseToggle}
               className={`text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors ${

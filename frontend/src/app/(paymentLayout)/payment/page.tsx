@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const PayPalPaymentPage = () => {
   return (
     <div>
-      <PaymentPage />;
+      <PaymentPage />
     </div>
   )
 }

@@ -48,7 +48,9 @@ function PaymentSuccessContent() {
             status === "ok" ? "text-green-400" : status === "error" ? "text-red-400" : "text-white"
           }`}
         >
-          {message}
+          {status === "ok"
+            ? message.replace(/^Payment\s+\w+/i, "Payment completed")
+            : message}
         </p>
         <div className="mt-6 flex gap-3">
           <button

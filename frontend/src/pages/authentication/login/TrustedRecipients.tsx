@@ -91,9 +91,12 @@ export default function TrustedRecipients({ userEmail }: Props) {
     return {};
   };
 
+  const additionalRecipients = recipients.filter((r) => !r.isOwner);
+  const additionalCount = additionalRecipients.length;
+
   const handleAdd = async () => {
-    // FIX: Maximum 10 recipients validation
-    if (recipients.length >= 10) {
+    // Self does not count toward the 10-recipient limit
+    if (additionalCount >= 10) {
       showToast("You have reached the maximum limit of 10 trusted recipients.", "error");
       return;
     }
@@ -161,7 +164,7 @@ export default function TrustedRecipients({ userEmail }: Props) {
             <h2 className="block text-[2rem] md:text-[4rem] lg:text-[2rem] uppercase leading-none tracking-wide mt-4"
               style={{ fontFamily: "var(--font-anton)", fontWeight: 300 }}>Trusted Recipients</h2>
             <p className="text-sm text-gray-500 mt-4">
-              Up to 10 people who will receive your documents. Minimum 1 required.
+              Up to 10 people (plus account owner) who will receive your documents. Minimum 1 required.
             </p>
           </div>
           <button
@@ -180,11 +183,11 @@ export default function TrustedRecipients({ userEmail }: Props) {
         {/* ── Recipients count indicator ── */}
         <div className="flex items-center justify-end mb-3">
           <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-            recipients.length >= 10
+            additionalCount >= 10
               ? "bg-red-50 border-red-300 text-red-600"
               : "bg-gray-50 border-gray-200 text-gray-500"
           }`}>
-            {recipients.length} / 10 Recipients
+            {additionalCount} / 10 Recipients
           </span>
         </div>
 
@@ -280,15 +283,15 @@ export default function TrustedRecipients({ userEmail }: Props) {
         {!showAddForm && (
           <button
             onClick={() => {
-              if (recipients.length >= 10) {
+              if (additionalCount >= 10) {
                 showToast("You have reached the maximum limit of 10 trusted recipients.", "error");
                 return;
               }
               setShowAddForm(true);
             }}
-            disabled={recipients.length >= 10}
+            disabled={additionalCount >= 10}
             className={`flex items-center text-black gap-2 text-sm font-bold px-7 py-3.5 rounded-xl transition-colors shadow-sm mb-4 cursor-pointer ${
-              recipients.length >= 10
+              additionalCount >= 10
                 ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                 : "bg-green-500 hover:bg-green-400"
             }`}

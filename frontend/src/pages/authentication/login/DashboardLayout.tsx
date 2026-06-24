@@ -129,7 +129,7 @@ export default function DashboardLayout() {
           {/* Right: CHECK-IN OK / PAUSED badge + last/next dates */}
           <div className="flex items-center gap-3 ml-auto">
             <span className={`flex items-center gap-1.5 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-full tracking-widest uppercase whitespace-nowrap ${
-              checkInStatus === "CHECK-IN OK" ? "bg-green-500" : "bg-yellow-500"
+              checkInStatus === "CHECK-IN OK" ? "bg-green-500" : "bg-red-500"
             }`}>
               <span className="w-2 h-2 rounded-full bg-white inline-block shrink-0" />
               {checkInStatus}
@@ -140,17 +140,9 @@ export default function DashboardLayout() {
                 <span className="font-bold text-gray-900">{lastCheckIn}</span>
               </div>
               <div>
-                Next due:{" "}
+                Next Check-In:{" "}
                 <span className="font-bold text-gray-900">{nextDue}</span>
               </div>
-              {summary && (
-                <div>
-                  Paid total:{" "}
-                  <span className="font-bold text-gray-900">
-                    ${Number(summary.completed_payment_amount).toFixed(2)}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -208,14 +200,6 @@ export default function DashboardLayout() {
 
       {/* ── Content Area ── */}
       <div className="bg-white min-h-[calc(100vh-120px)] w-full">
-        {summary && analytics && (
-          <div className="px-4 sm:px-6 lg:px-8 py-4 border-b border-gray-200 text-xs text-gray-700 flex flex-wrap gap-4">
-            <span className="font-semibold">Payments: {summary.total_payments}</span>
-            <span>Completed: {analytics.completed ?? 0}</span>
-            <span>Pending: {analytics.pending ?? 0}</span>
-            <span>Failed: {analytics.failed ?? 0}</span>
-          </div>
-        )}
         {activeTab === "check-in-email"       && <CheckInEmail userEmail={user?.email || "mycurrent@email.com"} />}
         {activeTab === "check-in-schedule"    && <CheckInSchedule onRefresh={loadDashboardData} />}
         {activeTab === "trusted-recipients"   && <TrustedRecipients userEmail={user?.email || "mycurrent@email.com"} />}
