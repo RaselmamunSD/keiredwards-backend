@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Anton, Geist, Geist_Mono, Roboto_Condensed } from "next/font/google";
 import "@/app/globals.css";
 import Navbar from "@/shared/Navbar";
 import Footer from "@/shared/Footer";
 import ScrollToTopButton from "@/BottomScrolling/ScrollToTopButton";
+import UrlMask from "@/components/UrlMask";
 
 import { Bebas_Neue } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
@@ -51,6 +53,9 @@ export default function RootLayout({
       >
         <main className="flex-1 w-full h-screen">
           <AuthProvider>
+            <Suspense fallback={null}>
+              <UrlMask />
+            </Suspense>
             {children}
           </AuthProvider>
         </main>
