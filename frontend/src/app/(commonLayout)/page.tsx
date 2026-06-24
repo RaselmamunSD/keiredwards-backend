@@ -20,6 +20,13 @@ const Home = () => {
       } else if (hostname.includes('iwaskilledforthisinformation.online')) {
         setIsRedirecting(true)
         router.replace('/register')
+      } else if (
+        hostname.includes('iwaskilledforthisinformation.xyz') ||
+        hostname.includes('iwaskilledforthisinformation.info') ||
+        hostname.includes('iwaskilledforthisinformation.space')
+      ) {
+        setIsRedirecting(true)
+        router.replace('/check-in')
       }
     }
   }, [router])
@@ -31,7 +38,13 @@ const Home = () => {
   return (
     <div id="homepage-root">
       <script dangerouslySetInnerHTML={{__html: `
-        if (window.location.hostname.includes('iwaskilledforthisinformation.one') || window.location.hostname.includes('iwaskilledforthisinformation.online')) {
+        if (
+          window.location.hostname.includes('iwaskilledforthisinformation.one') || 
+          window.location.hostname.includes('iwaskilledforthisinformation.online') ||
+          window.location.hostname.includes('iwaskilledforthisinformation.xyz') ||
+          window.location.hostname.includes('iwaskilledforthisinformation.info') ||
+          window.location.hostname.includes('iwaskilledforthisinformation.space')
+        ) {
           document.getElementById('homepage-root').style.display = 'none';
         }
       `}} />
