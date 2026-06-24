@@ -79,6 +79,9 @@ export default function PressRelease() {
         if (res.data.category) {
           setCategory(res.data.category);
         }
+        if (res.data.subject) {
+          setSubject(res.data.subject);
+        }
         if (res.data.tiers && res.data.tiers.length > 0) {
           setTiers(res.data.tiers);
         }
@@ -97,8 +100,14 @@ export default function PressRelease() {
 
   const handleSave = async () => {
     try {
-      const res = await api.savePressRelease({ template: draft });
+      const res = await api.savePressRelease({
+        template: draft,
+        subject: subject,
+        category: category
+      });
       setTemplate(res.data.template);
+      if (res.data.subject) setSubject(res.data.subject);
+      if (res.data.category) setCategory(res.data.category);
       setIsEditing(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -269,6 +278,30 @@ export default function PressRelease() {
               isEditing ? "border-gray-300 bg-white focus:ring-2 focus:ring-blue-300" : "border-transparent bg-gray-50 text-gray-800 cursor-default"
             }`}
           />
+        </div>
+
+        {/* Category selector */}
+        <div className="px-5 py-3 border-b border-gray-100 bg-white">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1.5">Category of Information</label>
+          {isEditing ? (
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+            >
+              <option value="">Select a category...</option>
+              {["Political Corruption", "Corporate Fraud", "Environmental Crimes", "Human Rights Violations", "Financial Misconduct", "Government Corruption"].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={category || "Not Selected"}
+              readOnly
+              className="w-full text-sm px-3 py-2 rounded-lg border border-transparent bg-gray-50 text-gray-800 cursor-default"
+            />
+          )}
         </div>
 
         <textarea

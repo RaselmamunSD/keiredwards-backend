@@ -9,7 +9,7 @@ function maskAddressBar() {
   const masked = `${window.location.origin}/`;
   if (window.location.href !== masked) {
     window.history.replaceState(
-      { urlMasked: true },
+      window.history.state,
       "",
       masked
     );

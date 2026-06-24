@@ -85,7 +85,7 @@ class PressReleaseConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PressReleaseConfig
-        fields = ("id", "is_active", "template", "current_tier", "category", "tiers", "updated_at")
+        fields = ("id", "is_active", "template", "current_tier", "category", "subject", "tiers", "updated_at")
         read_only_fields = ("id", "updated_at")
 
     def get_tiers(self, obj):

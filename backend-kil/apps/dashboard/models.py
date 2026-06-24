@@ -83,6 +83,7 @@ class PressReleaseConfig(models.Model):
     template = models.TextField()
     current_tier = models.IntegerField(default=0)
     category = models.CharField(max_length=255, default="Government corruption")
+    subject = models.CharField(max_length=255, default="URGENT: Critical Information Released")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
