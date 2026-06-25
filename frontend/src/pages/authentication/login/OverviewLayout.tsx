@@ -210,6 +210,9 @@ export default function OverviewLayout() {
     }>;
   } | null>(null);
 
+  const [error, setError] = useState<string>("");
+  const [reloadKey, setReloadKey] = useState<number>(0);
+
   useEffect(() => {
     if (!authLoading && !isLoggedIn) {
       router.push("/login");
@@ -220,6 +223,7 @@ export default function OverviewLayout() {
     if (!isLoggedIn) return;
     const load = async () => {
       try {
+        setError("");
         const [accountingRes, scheduleRes, emailRes, vaultRes, profileRes] = await Promise.all([
           api.getSetupAccounting(),
           api.getCheckInSchedule(),
@@ -334,10 +338,11 @@ export default function OverviewLayout() {
         });
       } catch (err) {
         console.error("Failed to load overview data", err);
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data. Please try again.");
       }
     };
     void load();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, reloadKey]);
 
   const handleLogout = async () => {
     await logout();
@@ -352,6 +357,24 @@ export default function OverviewLayout() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <p className="text-sm text-red-500 font-semibold mb-4 text-center">{error}</p>
+        <button
+          onClick={() => {
+            setError("");
+            setData(null);
+            setReloadKey(prev => prev + 1);
+          }}
+          className="bg-[#EF3832] hover:bg-red-600 active:bg-red-700 text-white font-bold text-xs px-5 py-3 rounded-lg uppercase tracking-widest transition-colors duration-150 cursor-pointer"
+        >
+          Retry Loading
+        </button>
+      </div>
+    );
+  }
+
   if (!data) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -359,6 +382,7 @@ export default function OverviewLayout() {
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-white py-8 sm:py-10">

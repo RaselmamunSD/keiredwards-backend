@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { LOGIN_DOMAIN, getCrossDomainUrl } from "@/lib/navigation";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -210,7 +212,11 @@ export default function PaymentPage({
       amount={amount}
       onDone={() => {
         onSuccess?.();
-        router.push("/login");
+        if (typeof window !== "undefined") {
+          window.location.href = getCrossDomainUrl(LOGIN_DOMAIN, "/login");
+        } else {
+          router.push("/login");
+        }
       }}
     />
   );
