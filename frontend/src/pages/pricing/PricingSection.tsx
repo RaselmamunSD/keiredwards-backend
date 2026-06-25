@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { MdKeyboardArrowDown } from "react-icons/md";
 import { api } from "@/lib/api";
+import { SIGNUP_DOMAIN, getCrossDomainUrl } from "@/lib/navigation";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface CheckInOption {
@@ -310,7 +311,7 @@ const PricingSection = () => {
                 </p>
               </div>
               <Link
-                href="/register"
+                href={getCrossDomainUrl(SIGNUP_DOMAIN, "/register")}
                 className="shrink-0 bg-white text-[#e02020] font-bold text-xs tracking-widest uppercase px-6 py-3 rounded-lg hover:bg-white/90 transition-all duration-200 whitespace-nowrap"
               >
                 CREATE ACCOUNT →

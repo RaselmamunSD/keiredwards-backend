@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SIGNUP_DOMAIN, getCrossDomainUrl } from "@/lib/navigation";
 
 const STATS = [
   { value: "256", accent: "-BIT", label: "MILITARY ENCRYPTION" },
@@ -66,7 +67,7 @@ const HeroSection = () => {
 
         {/* CTA Button with red glow on hover */}
         <Link
-          href="/register"
+          href={getCrossDomainUrl(SIGNUP_DOMAIN, "/register")}
           className="relative z-10 inline-flex items-center justify-center rounded-sm
             bg-[#EF3832] text-white text-xs sm:text-sm font-bold tracking-[0.18em] uppercase
             px-8 sm:px-10 py-4 mb-6

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LANDING_DOMAIN, getCrossDomainUrl } from "@/lib/navigation";
 
 const FOOTER_LINKS = [
   { title: "Privacy Policy", path: "/privacy-policy" },
@@ -24,7 +25,7 @@ const Footer = () => {
 
           {/* Logo */}
           <div className="shrink-0">
-            <Link href="/" className="flex items-center gap-3 shrink-0 group">
+            <Link href={getCrossDomainUrl(LANDING_DOMAIN, "/")} className="flex items-center gap-3 shrink-0 group">
               <Image
                 src={"/website_logo/logo.svg"}
                 width={50}
@@ -47,7 +48,7 @@ const Footer = () => {
               return (
                 <Link
                   key={link.path}
-                  href={link.path}
+                  href={getCrossDomainUrl(LANDING_DOMAIN, link.path)}
                   className={`relative text-sm font-medium px-3 py-1.5 rounded-lg transition-all duration-200 group
                     ${isActive
                       ? "text-[#4CBB17]"
