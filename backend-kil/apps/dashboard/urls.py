@@ -12,6 +12,8 @@ from .views import (
     UserVaultFileDownloadView,
     SetupAccountingConfigView,
     ContactMessageCreateView,
+    CheckInMagicLinkRequestView,
+    CheckInMagicLinkVerifyView,
 )
 
 urlpatterns = [
@@ -26,5 +28,7 @@ urlpatterns = [
     path("vault-files/<int:file_id>/download/", UserVaultFileDownloadView.as_view(), name="dashboard-vault-file-download"),
     path("setup-accounting/", SetupAccountingConfigView.as_view(), name="dashboard-setup-accounting"),
     path("contact/", ContactMessageCreateView.as_view(), name="dashboard-contact"),
+    path("checkin/request-link/", CheckInMagicLinkRequestView.as_view(), name="checkin-request-link"),
+    path("checkin/verify-link/", CheckInMagicLinkVerifyView.as_view(), name="checkin-verify-link"),
 ]
 

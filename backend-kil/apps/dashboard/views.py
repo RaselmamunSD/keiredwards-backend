@@ -810,3 +810,158 @@ class ContactMessageCreateView(APIView):
             status.HTTP_201_CREATED,
         )
 
+
+# ─── Check-In Magic Link Views ─────────────────────────────────────────────────
+
+class CheckInMagicLinkRequestView(APIView):
+    """
+    Public endpoint: accepts email + password, verifies credentials,
+    then emails a one-time magic link to the user's configured check-in email.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        import secrets
+        from django.utils import timezone
+        from django.core.mail import send_mail
+        from django.conf import settings as django_settings
+        from django.contrib.auth import get_user_model
+        from .models import CheckInMagicLink
+
+        email = request.data.get("email", "").strip()
+        password = request.data.get("password", "")
+
+        if not email or not password:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"detail": "Email and password are required."})
+
+        User = get_user_model()
+
+        # Find user by email (case-insensitive)
+        user = User.objects.filter(email__iexact=email).first()
+        if not user or not user.check_password(password):
+            from rest_framework.exceptions import AuthenticationFailed
+            raise AuthenticationFailed("Invalid email or password.")
+
+        # Determine the check-in email address
+        try:
+            checkin_email = user.checkin_email_config.checkin_email or user.email
+        except Exception:
+            checkin_email = user.email
+
+        # Generate a secure 48-char hex token
+        token = secrets.token_hex(24)
+        expires_at = timezone.now() + timezone.timedelta(minutes=30)
+
+        # Invalidate any previous unused tokens for this user
+        CheckInMagicLink.objects.filter(user=user, is_used=False).update(is_used=True)
+
+        CheckInMagicLink.objects.create(user=user, token=token, expires_at=expires_at)
+
+        frontend_url = getattr(django_settings, "FRONTEND_URL", "http://localhost:3000")
+        magic_link = f"{frontend_url}/check-in/verify?token={token}"
+
+        try:
+            send_mail(
+                subject="Your Check-In Link — I Was Killed For This Information",
+                message=(
+                    f"Hello,\n\n"
+                    f"Click the link below to complete your check-in. "
+                    f"This link expires in 30 minutes and can only be used once.\n\n"
+                    f"{magic_link}\n\n"
+                    f"If you did not request this, please ignore this email.\n\n"
+                    f"— I Was Killed For This Information"
+                ),
+                from_email=getattr(django_settings, "DEFAULT_FROM_EMAIL", "no-reply@iwaskilledforthisinformation.one"),
+                recipient_list=[checkin_email],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            # If email fails, still return the link in debug mode so it can be tested
+            if getattr(django_settings, "DEBUG", False):
+                return success_response(
+                    "DEBUG: Email not sent (check console). Magic link included in response.",
+                    {"magic_link": magic_link, "checkin_email": checkin_email},
+                    status.HTTP_200_OK,
+                )
+            raise exc
+
+        return success_response(
+            f"A check-in link has been sent to {checkin_email}. Please check your inbox.",
+            {"checkin_email": checkin_email},
+            status.HTTP_200_OK,
+        )
+
+
+class CheckInMagicLinkVerifyView(APIView):
+    """
+    Public endpoint: accepts a token from the magic link URL,
+    validates it, records the check-in, and returns JWT tokens.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from django.utils import timezone
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from .models import CheckInMagicLink, CheckInHistoryRecord
+
+        token = request.data.get("token", "").strip()
+        if not token:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"detail": "Token is required."})
+
+        try:
+            magic = CheckInMagicLink.objects.select_related("user").get(token=token)
+        except CheckInMagicLink.DoesNotExist:
+            from rest_framework.exceptions import AuthenticationFailed
+            raise AuthenticationFailed("Invalid or expired check-in link.")
+
+        if magic.is_used:
+            from rest_framework.exceptions import AuthenticationFailed
+            raise AuthenticationFailed("This check-in link has already been used.")
+
+        if timezone.now() > magic.expires_at:
+            from rest_framework.exceptions import AuthenticationFailed
+            raise AuthenticationFailed("This check-in link has expired. Please request a new one.")
+
+        # Mark token as used
+        magic.is_used = True
+        magic.save(update_fields=["is_used"])
+
+        user = magic.user
+
+        # Record the check-in
+        now = timezone.now()
+        ua = request.META.get("HTTP_USER_AGENT", "").lower()
+        if "windows" in ua:
+            device_os = "Windows"
+        elif "macintosh" in ua or "mac os" in ua:
+            device_os = "macOS"
+        elif "iphone" in ua or "ipad" in ua:
+            device_os = "iOS"
+        elif "android" in ua:
+            device_os = "Android"
+        elif "linux" in ua:
+            device_os = "Linux"
+        else:
+            device_os = "Unknown"
+
+        CheckInHistoryRecord.objects.create(
+            user=user,
+            date=now.strftime("%m/%d/%Y"),
+            time=now.strftime("%I:%M %p"),
+            ip=request.META.get("REMOTE_ADDR") or "127.0.0.1",
+            login_name=user.email or user.username,
+            device_os=device_os,
+        )
+
+        # Issue JWT tokens
+        refresh = RefreshToken.for_user(user)
+        return success_response(
+            "Check-in verified successfully. Redirecting to dashboard.",
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            },
+            status.HTTP_200_OK,
+        )

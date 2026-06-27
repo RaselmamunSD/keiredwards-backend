@@ -1,9 +1,5 @@
 export const API_URL =
-  (typeof window !== "undefined"
-    ? (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      ? (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000")
-      : window.location.origin)
-    : (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000"));
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -20,13 +16,6 @@ export interface ApiErrorBody {
   message?: string;
   errors?: Record<string, string[] | string | unknown>;
   status_code?: number;
-}
-
-export interface StoragePlan {
-  gb: number;
-  price: string;
-  description: string;
-  isCurrent?: boolean;
 }
 
 function formatApiErrorMessage(payload: ApiErrorBody): string {
@@ -203,7 +192,7 @@ export const api = {
       payload
     ),
   paymentsVerify: (reference: string) =>
-    authorizedRequest<{ payment: { status: string; transaction_id: string; metadata?: Record<string, any> } }>(
+    authorizedRequest<{ payment: { status: string; transaction_id: string } }>(
       "payments/verify/",
       "POST",
       { reference }
@@ -327,31 +316,22 @@ export const api = {
       is_active: boolean;
       template: string;
       current_tier: number;
-      category?: string;
-      subject?: string;
-      tiers?: Array<{ count: string; label: string; price: string | null }>;
     }>("dashboard/press-release/", "GET"),
   savePressRelease: (payload: Partial<{
     is_active: boolean;
     template: string;
     current_tier: number;
-    category: string;
-    subject: string;
   }>) =>
     authorizedRequest<{
       id: number;
       is_active: boolean;
       template: string;
       current_tier: number;
-      category?: string;
-      subject?: string;
-      tiers?: Array<{ count: string; label: string; price: string | null }>;
     }>("dashboard/press-release/", "POST", payload),
   getVaultFiles: () =>
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
-      storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "GET"),
   saveVaultFiles: (payload: {
     total_storage_gb?: number;
@@ -360,7 +340,6 @@ export const api = {
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
-      storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "POST", payload),
   downloadVaultFile: async (id: number, fileName: string) => {
     const access = tokenStorage.getAccess();
@@ -388,25 +367,18 @@ export const api = {
       services: Array<{ id: number; name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
       billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
       history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
-      addons?: Array<{ key: string; label: string; description: string; price: number }>;
-      press_release_options?: Array<{ key: string; label: string; description: string; price: number }>;
     }>("dashboard/setup-accounting/", "GET"),
   updateSetupAccounting: (payload: {
     two_fa_enabled?: boolean;
     two_fa_email?: string;
     purchase_service?: string;
-    purchase_services?: string[];
     renew_services?: string[];
-    extra_storage_gb?: number;
-    check_in_service?: string;
   }) =>
     authorizedRequest<{
       config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
       services: Array<{ id: number; name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
       billing: Array<{ id: number; date: string; description: string; amount: string; is_included: boolean }>;
       history: Array<{ id: number; date: string; time: string; ip: string; login_name: string; device_os: string }>;
-      addons?: Array<{ key: string; label: string; description: string; price: number }>;
-      press_release_options?: Array<{ key: string; label: string; description: string; price: number }>;
     }>("dashboard/setup-accounting/", "POST", payload),
   passwordChange: (payload: { old_password: string; new_password: string; new_password_confirm: string }) =>
     authorizedRequest<{}>("auth/password/change/", "POST", payload),
@@ -432,8 +404,12 @@ export const api = {
         formData.append(key, val as string);
       }
     }
-    return authorizedRequest<{}>( "auth/profile/update/", "PUT", formData);
+    return authorizedRequest<{}>("auth/profile/update/", "PUT", formData);
   },
   deleteAccount: (payload: { email: string; password: string }) =>
     authorizedRequest<{}>("auth/delete-account/", "POST", payload),
+  requestCheckInLink: (payload: { email: string; password: string }) =>
+    rawRequest<{ checkin_email?: string; magic_link?: string }>("dashboard/checkin/request-link/", "POST", payload),
+  verifyCheckInLink: (payload: { token: string }) =>
+    rawRequest<{ access: string; refresh: string }>("dashboard/checkin/verify-link/", "POST", payload),
 };
