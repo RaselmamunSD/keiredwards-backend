@@ -18,6 +18,13 @@ export interface ApiErrorBody {
   status_code?: number;
 }
 
+export interface StoragePlan {
+  gb: number;
+  price: string;
+  description: string;
+  isCurrent?: boolean;
+}
+
 function formatApiErrorMessage(payload: ApiErrorBody): string {
   const msg = payload.message;
   if (msg && msg !== "Request failed.") {
@@ -192,7 +199,7 @@ export const api = {
       payload
     ),
   paymentsVerify: (reference: string) =>
-    authorizedRequest<{ payment: { status: string; transaction_id: string } }>(
+    authorizedRequest<{ payment: { status: string; transaction_id: string; metadata?: Record<string, any> } }>(
       "payments/verify/",
       "POST",
       { reference }
@@ -316,22 +323,31 @@ export const api = {
       is_active: boolean;
       template: string;
       current_tier: number;
+      category?: string;
+      subject?: string;
+      tiers?: Array<{ count: string; label: string; price: string | null }>;
     }>("dashboard/press-release/", "GET"),
   savePressRelease: (payload: Partial<{
     is_active: boolean;
     template: string;
     current_tier: number;
+    category: string;
+    subject: string;
   }>) =>
     authorizedRequest<{
       id: number;
       is_active: boolean;
       template: string;
       current_tier: number;
+      category?: string;
+      subject?: string;
+      tiers?: Array<{ count: string; label: string; price: string | null }>;
     }>("dashboard/press-release/", "POST", payload),
   getVaultFiles: () =>
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+      storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "GET"),
   saveVaultFiles: (payload: {
     total_storage_gb?: number;
@@ -340,6 +356,7 @@ export const api = {
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
       files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+      storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "POST", payload),
   downloadVaultFile: async (id: number, fileName: string) => {
     const access = tokenStorage.getAccess();

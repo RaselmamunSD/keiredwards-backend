@@ -11,7 +11,7 @@ export default function CheckInVerifyPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const token = searchParams.get("token");
+    const token = searchParams?.get("token");
     if (!token) {
       setErrorMsg("No check-in token found in the URL. Please request a new check-in link.");
       setStatus("error");
