@@ -93,10 +93,11 @@ class PressReleaseTierSerializer(serializers.ModelSerializer):
 
 class PressReleaseConfigSerializer(serializers.ModelSerializer):
     tiers = serializers.SerializerMethodField()
+    is_purchased = serializers.SerializerMethodField()
 
     class Meta:
         model = PressReleaseConfig
-        fields = ("id", "is_active", "template", "current_tier", "category", "subject", "tiers", "updated_at")
+        fields = ("id", "is_active", "template", "current_tier", "category", "subject", "tiers", "is_purchased", "updated_at")
         read_only_fields = ("id", "updated_at")
 
     def get_tiers(self, obj):
@@ -107,6 +108,11 @@ class PressReleaseConfigSerializer(serializers.ModelSerializer):
             PressReleaseTier.objects.create(tier_index=2, count="1,000+", label="Media Outlets", price=695.00)
             tiers = PressReleaseTier.objects.all().order_by("tier_index")
         return PressReleaseTierSerializer(tiers, many=True).data
+
+    def get_is_purchased(self, obj):
+        from apps.dashboard.models import ActiveService
+        service = ActiveService.objects.filter(user=obj.user, name="Press Release").first()
+        return service.is_purchased if service else False
 
 
 class StorageConfigSerializer(serializers.ModelSerializer):

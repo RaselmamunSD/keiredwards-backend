@@ -133,7 +133,7 @@ class PaymentVerifyView(APIView):
                 if tier_val is not None:
                     try:
                         tier_int = int(tier_val)
-                        from apps.dashboard.models import PressReleaseConfig
+                        from apps.dashboard.models import PressReleaseConfig, ActiveService, BillingRecord
                         press_config, created = PressReleaseConfig.objects.get_or_create(
                             user=payment.user,
                             defaults={
@@ -154,6 +154,19 @@ class PaymentVerifyView(APIView):
                         )
                         press_config.current_tier = tier_int
                         press_config.save()
+
+                        ActiveService.objects.filter(user=payment.user, name="Press Release").update(
+                            is_purchased=True,
+                            active_until="March 7, 2027"
+                        )
+
+                        # Add a billing record
+                        price_str = f"${payment.amount}"
+                        BillingRecord.objects.get_or_create(
+                            user=payment.user,
+                            description=f"Press Release Upgrade (Tier {tier_int})",
+                            defaults={"date": "06/27/2026", "amount": price_str}
+                        )
                     except Exception as e:
                         import logging
                         logger = logging.getLogger(__name__)

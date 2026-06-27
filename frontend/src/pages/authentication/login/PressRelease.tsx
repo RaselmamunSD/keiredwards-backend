@@ -64,9 +64,9 @@ export default function PressRelease() {
   // ── Alert Modal State ──
   const [subject, setSubject] = useState("URGENT: Critical Information Released");
   const [alertMessage, setAlertMessage] = useState("");
+  const [isPurchased, setIsPurchased] = useState(false);
 
   const safeCurrentTier = currentTier >= 0 && currentTier < tiers.length ? currentTier : 0;
-  const isPurchased = isActive || category !== "" || safeCurrentTier > 0;
 
   useEffect(() => {
     const load = async () => {
@@ -76,6 +76,7 @@ export default function PressRelease() {
         setTemplate(res.data.template);
         setDraft(res.data.template);
         setCurrentTier(res.data.current_tier);
+        setIsPurchased(res.data.is_purchased ?? false);
         if (res.data.category) {
           setCategory(res.data.category);
         }
@@ -243,7 +244,12 @@ export default function PressRelease() {
             {!isEditing ? (
               <button
                 onClick={handleEdit}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                disabled={!isPurchased}
+                className={`text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors ${
+                  !isPurchased
+                    ? "bg-gray-300 text-gray-400 cursor-not-allowed border border-gray-200"
+                    : "bg-blue-600 hover:bg-blue-500 cursor-pointer"
+                }`}
               >
                 <CiEdit size={14} /> EDIT TEMPLATE
               </button>
@@ -267,15 +273,16 @@ export default function PressRelease() {
         </div>
 
         {/* Subject line */}
-        <div className="px-5 py-3 border-b border-gray-100 bg-white">
-          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1.5">Subject</label>
+        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Subject Bar</label>
           <input
             type="text"
+            placeholder="Enter press release email subject..."
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             readOnly={!isEditing}
-            className={`w-full text-sm px-3 py-2 rounded-lg border focus:outline-none ${
-              isEditing ? "border-gray-300 bg-white focus:ring-2 focus:ring-blue-300" : "border-transparent bg-gray-50 text-gray-800 cursor-default"
+            className={`w-full text-sm px-4 py-3 rounded-lg border focus:outline-none transition-all ${
+              isEditing ? "border-blue-400 bg-white focus:ring-2 focus:ring-blue-200" : "border-gray-200 bg-gray-100 text-gray-700 cursor-not-allowed"
             }`}
           />
         </div>
