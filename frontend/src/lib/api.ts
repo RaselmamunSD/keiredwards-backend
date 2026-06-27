@@ -432,8 +432,8 @@ export const api = {
         formData.append(key, val as string);
       }
     }
-    return authorizedRequest<{}>("auth/profile/update/", "PUT", formData);
+    return authorizedRequest<{}>( "auth/profile/update/", "PUT", formData);
   },
+  deleteAccount: (payload: { email: string; password: string }) =>
+    authorizedRequest<{}>("auth/delete-account/", "POST", payload),
 };
-
-

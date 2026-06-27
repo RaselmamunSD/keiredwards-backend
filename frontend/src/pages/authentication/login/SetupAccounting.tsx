@@ -1055,8 +1055,9 @@ function CancelContent() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<AnyErrors>({});
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     setSubmitted(true);
     const result = cancelSchema.safeParse({ email, password });
     if (!result.success) {
@@ -1065,21 +1066,59 @@ function CancelContent() {
       return;
     }
 
-    Swal.fire({
+    const confirmed = await Swal.fire({
       title: "Are you sure?",
-      text: "Account cancellation submitted. All data will be permanently deleted.",
+      text: "This will permanently delete your account and all data. This action cannot be undone.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, delete it!"
-    }).then((result) => {
-      if (result.isConfirmed) Swal.fire({
-        title: "Account Cancelled",
-        text: "Your account has been permanently deleted.",
-        icon: "success"
-      });
+      confirmButtonColor: "#e8281e",
+      cancelButtonColor: "#555",
+      confirmButtonText: "Yes, delete my account!",
+      cancelButtonText: "Cancel",
     });
+
+    if (!confirmed.isConfirmed) return;
+
+    setLoading(true);
+    try {
+      await api.deleteAccount({ email, password });
+
+      // Clear all auth tokens and local storage
+      const { tokenStorage } = await import("@/lib/api");
+      tokenStorage.clear();
+      localStorage.clear();
+      sessionStorage.clear();
+
+      await Swal.fire({
+        title: "Account Deleted",
+        text: "Your account has been permanently deleted. You will now be redirected.",
+        icon: "success",
+        timer: 2500,
+        showConfirmButton: false,
+      });
+
+      // Redirect to landing page
+      window.location.href = "/";
+    } catch (err: unknown) {
+      setLoading(false);
+      if (err && typeof err === "object" && "body" in err) {
+        const apiErr = err as { body?: { errors?: Record<string, string[] | string> } };
+        const fieldErrors = apiErr.body?.errors || {};
+        const mapped: AnyErrors = {};
+        for (const [key, val] of Object.entries(fieldErrors)) {
+          mapped[key] = Array.isArray(val) ? val[0] : String(val);
+        }
+        if (Object.keys(mapped).length > 0) {
+          setErrors(mapped);
+          return;
+        }
+      }
+      Swal.fire({
+        title: "Error",
+        text: err instanceof Error ? err.message : "Failed to delete account. Please try again.",
+        icon: "error",
+      });
+    }
   };
 
   return (
@@ -1103,13 +1142,15 @@ function CancelContent() {
 
       <button
         onClick={handleCancel}
-        className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-3.5 rounded-lg transition-colors tracking-wide cursor-pointer"
+        disabled={loading}
+        className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold py-3.5 rounded-lg transition-colors tracking-wide cursor-pointer"
       >
-        CANCEL ALL SERVICES — DELETE MY VAULT
+        {loading ? "DELETING ACCOUNT…" : "CANCEL ALL SERVICES — DELETE MY VAULT"}
       </button>
     </div>
   );
 }
+
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 

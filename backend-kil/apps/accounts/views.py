@@ -199,3 +199,29 @@ class ProfileUpdateView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return success_response("Profile updated successfully.", serializer.data, status.HTTP_200_OK)
+
+
+class DeleteAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        email = request.data.get("email", "").strip()
+        password = request.data.get("password", "")
+
+        user = request.user
+
+        # Verify the provided email matches the account email
+        if user.email.lower() != email.lower():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"email": "The email address does not match your account."})
+
+        # Verify the password is correct
+        if not user.check_password(password):
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"password": "Incorrect password. Please try again."})
+
+        # Delete the user account (CASCADE will clean up related records)
+        user.delete()
+
+        return success_response("Account permanently deleted.", {}, status.HTTP_200_OK)
+
