@@ -43,6 +43,17 @@ class CheckInEmailConfigSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "created_at", "updated_at")
 
+    def validate_checkin_email(self, value):
+        if value:
+            value = value.strip().lower()
+            request = self.context.get("request")
+            user = request.user if request else None
+            if user:
+                qs = CheckInEmailConfig.objects.filter(checkin_email__iexact=value).exclude(user=user)
+                if qs.exists():
+                    raise serializers.ValidationError("This check-in email address is already connected to another account.")
+        return value
+
 
 class CheckInScheduleConfigSerializer(serializers.ModelSerializer):
     class Meta:
