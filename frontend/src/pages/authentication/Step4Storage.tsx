@@ -323,7 +323,7 @@ function StorageTiers({ gb, termYears, discountPct }: { gb: number; termYears: n
             )}
           </p>
           {discountPct > 0 && saved > 0 && (
-            <p className="text-green-600 font-medium mt-0.5">You save ${saved.toFixed(0)} on storage</p>
+            <p className="text-green-600 font-medium mt-0.5">You save ${saved.toFixed(2)} on storage</p>
           )}
         </>
       )}
