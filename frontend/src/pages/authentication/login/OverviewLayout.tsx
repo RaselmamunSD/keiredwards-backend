@@ -422,7 +422,7 @@ export default function OverviewLayout() {
             </button>
 
             <button
-              onClick={() => window.open("https://iwaskilledforthisinformation.help", "_blank", "noopener,noreferrer")}
+              onClick={() => window.location.href = "http://iwaskilledforthisinformation.help"}
               className="bg-[#5DADE2] hover:bg-yellow-500 active:bg-yellow-600 text-white font-bold text-xs px-6 py-5 rounded-lg uppercase tracking-widest transition-colors duration-150 text-center cursor-pointer"
               style={{ minWidth: "80px" }}
             >
