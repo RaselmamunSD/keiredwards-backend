@@ -829,19 +829,18 @@ class CheckInMagicLinkRequestView(APIView):
         from .models import CheckInMagicLink
 
         email = request.data.get("email", "").strip()
-        password = request.data.get("password", "")
 
-        if not email or not password:
+        if not email:
             from rest_framework.exceptions import ValidationError
-            raise ValidationError({"detail": "Email and password are required."})
+            raise ValidationError({"detail": "Email is required."})
 
         User = get_user_model()
 
         # Find user by email (case-insensitive)
         user = User.objects.filter(email__iexact=email).first()
-        if not user or not user.check_password(password):
+        if not user:
             from rest_framework.exceptions import AuthenticationFailed
-            raise AuthenticationFailed("Invalid email or password.")
+            raise AuthenticationFailed("No account found with this email address.")
 
         # Determine the check-in email address
         try:

@@ -10,7 +10,6 @@ import { api } from "@/lib/api";
 
 const schema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -120,7 +119,7 @@ const CheckInForm: React.FC = () => {
   const onSubmit = async (data: FormData) => {
     setServerError("");
     try {
-      const res = await api.requestCheckInLink({ email: data.email, password: data.password });
+      const res = await api.requestCheckInLink({ email: data.email });
       // In DEBUG mode the backend returns magic_link directly; show checkin_email either way
       setCheckinEmail(res.data.checkin_email || data.email);
       setStage("sent");
@@ -151,7 +150,7 @@ const CheckInForm: React.FC = () => {
         {stage === "form" && (
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
             <p className="text-gray-400 text-sm text-center leading-relaxed -mt-1 mb-1">
-              Enter your account email and password. A one-time check-in link will be sent to your registered check-in email address.
+              Enter your account email. A one-time check-in link will be sent to your registered check-in email address.
             </p>
 
             <InputField
@@ -161,15 +160,6 @@ const CheckInForm: React.FC = () => {
               placeholder="you@example.com"
               error={errors.email?.message}
               registration={register("email")}
-            />
-
-            <InputField
-              label="Password"
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              error={errors.password?.message}
-              registration={register("password")}
             />
 
             {serverError && (
