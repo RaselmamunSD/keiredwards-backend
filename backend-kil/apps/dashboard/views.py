@@ -290,6 +290,8 @@ class UserVaultFilesView(APIView):
         )
 
     def post(self, request):
+        import json
+        
         # 1. Update total_storage_gb if provided
         total_storage_gb = request.data.get("total_storage_gb")
         if total_storage_gb:
@@ -307,7 +309,6 @@ class UserVaultFilesView(APIView):
             if isinstance(raw_existing, list):
                 for item in raw_existing:
                     try:
-                        import json
                         parsed = json.loads(item)
                         if isinstance(parsed, dict) and "id" in parsed:
                             existing_ids.append(int(parsed["id"]))
@@ -326,7 +327,6 @@ class UserVaultFilesView(APIView):
                             pass
             else:
                 try:
-                    import json
                     parsed = json.loads(raw_existing)
                     if isinstance(parsed, list):
                         for p in parsed:
@@ -371,14 +371,14 @@ class UserVaultFilesView(APIView):
                 )
         else:
             # Calculate size of existing files to keep
-            existing_files = UserVaultFile.objects.filter(user=request.user)
+            existing_files_qs = UserVaultFile.objects.filter(user=request.user)
             if existing_ids:
-                existing_files = existing_files.filter(id__in=existing_ids)
+                kept_files = existing_files_qs.filter(id__in=existing_ids)
             else:
-                existing_files = existing_files.none()
+                kept_files = existing_files_qs.none()
                 
             current_used_bytes = 0
-            for ef in existing_files:
+            for ef in kept_files:
                 try:
                     current_used_bytes += float(ef.file_size_mb) * 1024 * 1024
                 except ValueError:
@@ -401,49 +401,77 @@ class UserVaultFilesView(APIView):
                 to_delete = to_delete.exclude(id__in=existing_ids)
             to_delete.delete()
 
-            # Handle new file uploads
-            from .s3_helper import upload_file_stream
-            
-            for f in uploaded_files:
-                file_size_bytes = f.size
-                file_size_mb = f"{file_size_bytes / (1024 * 1024):.2f}"
-                
-                # Generate dynamic encryption key and IV
-                key_bytes = os.urandom(32)
-                iv_bytes = os.urandom(16)
-                
-                key_b64 = base64.b64encode(key_bytes).decode('utf-8')
-                iv_b64 = base64.b64encode(iv_bytes).decode('utf-8')
-                
-                # Determine bucket based on size
-                if file_size_bytes <= 10 * 1024 * 1024:
-                    bucket = 1
-                elif file_size_bytes <= 100 * 1024 * 1024:
-                    bucket = 2
-                else:
-                    bucket = 4 if 4 in settings.IDRIVE_E2_BUCKETS else 3
-                
-                unique_name = f"{uuid.uuid4().hex}.enc"
-                
-                # Upload stream
-                is_cloud, path_or_key = upload_file_stream(f, bucket, unique_name, key_bytes, iv_bytes)
-                
-                UserVaultFile.objects.create(
-                    user=request.user,
-                    file_name=f.name,
-                    file_size_mb=file_size_mb,
-                    encrypted_file_path=path_or_key,
-                    encryption_key=key_b64,
-                    encryption_iv=iv_b64,
-                    storage_bucket=bucket
+            # Save new files to staging directory and dispatch Celery tasks
+            if uploaded_files:
+                staging_dir = os.path.join(
+                    getattr(settings, 'VAULT_STAGING_DIR', os.path.join(settings.BASE_DIR, 'vault_staging')),
+                    str(request.user.id)
                 )
+                os.makedirs(staging_dir, exist_ok=True)
+
+                from celery_app.tasks import process_vault_file_upload
+
+                for f in uploaded_files:
+                    file_size_bytes = f.size
+                    file_size_mb = f"{file_size_bytes / (1024 * 1024):.2f}"
+                    
+                    # Save to staging directory
+                    staging_filename = f"{uuid.uuid4().hex}_{f.name}"
+                    staging_path = os.path.join(staging_dir, staging_filename)
+                    
+                    with open(staging_path, 'wb') as dest:
+                        for chunk in f.chunks(chunk_size=8 * 1024 * 1024):  # 8MB chunks
+                            dest.write(chunk)
+                    
+                    # Create DB record with status=pending
+                    vault_file = UserVaultFile.objects.create(
+                        user=request.user,
+                        file_name=f.name,
+                        file_size_mb=file_size_mb,
+                        status="pending",
+                        staging_path=staging_path,
+                    )
+                    
+                    # Dispatch Celery background task
+                    try:
+                        process_vault_file_upload.delay(vault_file.id)
+                    except Exception:
+                        # If Celery is not available, process synchronously as fallback
+                        from .s3_helper import upload_file_stream
+                        key_bytes = os.urandom(32)
+                        iv_bytes = os.urandom(16)
+                        key_b64 = base64.b64encode(key_bytes).decode('utf-8')
+                        iv_b64 = base64.b64encode(iv_bytes).decode('utf-8')
+                        
+                        if file_size_bytes <= 10 * 1024 * 1024:
+                            bucket = 1
+                        elif file_size_bytes <= 100 * 1024 * 1024:
+                            bucket = 2
+                        else:
+                            bucket = 4 if 4 in settings.IDRIVE_E2_BUCKETS else 3
+                        
+                        unique_name = f"{uuid.uuid4().hex}.enc"
+                        with open(staging_path, 'rb') as sf:
+                            is_cloud, path_or_key = upload_file_stream(sf, bucket, unique_name, key_bytes, iv_bytes)
+                        
+                        vault_file.encrypted_file_path = path_or_key
+                        vault_file.encryption_key = key_b64
+                        vault_file.encryption_iv = iv_b64
+                        vault_file.storage_bucket = bucket
+                        vault_file.status = "completed"
+                        vault_file.save()
+                        
+                        try:
+                            os.remove(staging_path)
+                        except OSError:
+                            pass
 
         self._ensure_default_plans()
         storage_config, created = StorageConfig.objects.get_or_create(user=request.user)
         files = UserVaultFile.objects.filter(user=request.user)
         storage_plans = StoragePlan.objects.all()
         return success_response(
-            "Vault files saved successfully.",
+            "Files received and queued for secure processing.",
             {
                 "storage_config": StorageConfigSerializer(storage_config).data,
                 "files": UserVaultFileSerializer(files, many=True).data,
@@ -953,4 +981,20 @@ class CheckInMagicLinkVerifyView(APIView):
                 "refresh": str(refresh),
             },
             status.HTTP_200_OK,
+        )
+
+
+class VaultFileStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        files = UserVaultFile.objects.filter(user=request.user)
+        storage_config, _ = StorageConfig.objects.get_or_create(user=request.user)
+        return success_response(
+            "File status fetched.",
+            {
+                "storage_config": StorageConfigSerializer(storage_config).data,
+                "files": UserVaultFileSerializer(files, many=True).data,
+            },
+            status.HTTP_200_OK
         )

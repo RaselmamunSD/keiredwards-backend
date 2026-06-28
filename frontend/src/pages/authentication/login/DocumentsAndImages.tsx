@@ -7,7 +7,9 @@ interface UploadedFile {
   id: string;
   name: string;
   sizeMB: string;
-  file?: File;
+  file?: File;   // present only for newly-selected (not-yet-saved) files
+  status?: string;  // "pending" | "processing" | "completed" | "failed"
+  errorMessage?: string | null;
 }
 
 const STORAGE_PLANS: StoragePlan[] = [
@@ -18,14 +20,7 @@ const STORAGE_PLANS: StoragePlan[] = [
   { gb: 25, price: "$79.99", description: "Enterprise-level storage solution" },
 ];
 
-const PROCESSING_STEPS = [
-  "Compressing files into a single archive...",
-  "Encrypting your vault...",
-  "Splitting into secure fragments...",
-  "Uploading to storage servers...",
-  "Updating secure database...",
-  "Cleaning up — files secured!",
-];
+
 
 // ── Alert Modal ───────────────────────────────────────────────────────────────
 
@@ -145,6 +140,10 @@ export default function DocumentsAndImages() {
   const [processingStep, setProcessingStep] = useState("");
   const [processingDone, setProcessingDone] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [hasBackgroundProcessing, setHasBackgroundProcessing] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // FIX: Alert modal state for purchase confirmation
   const [alertMessage, setAlertMessage] = useState("");
@@ -160,10 +159,12 @@ export default function DocumentsAndImages() {
         if (res.data.storage_plans) {
           setStoragePlans(res.data.storage_plans);
         }
-        const mapped = res.data.files.map(f => ({
+        const mapped = res.data.files.map((f: any) => ({
           id: String(f.id),
           name: f.file_name,
           sizeMB: f.file_size_mb,
+          status: f.status || "completed",
+          errorMessage: f.error_message,
         }));
         setFiles(mapped);
       } catch (err) {
@@ -172,6 +173,45 @@ export default function DocumentsAndImages() {
     };
     void load();
   }, []);
+
+  useEffect(() => {
+    // Start polling if there are pending/processing files
+    const hasPending = files.some(f => f.status === "pending" || f.status === "processing");
+
+    if (hasPending && !pollingRef.current) {
+      setHasBackgroundProcessing(true);
+      pollingRef.current = setInterval(async () => {
+        try {
+          const res = await api.getVaultFileStatus();
+          const mapped = res.data.files.map((f: any) => ({
+            id: String(f.id),
+            name: f.file_name,
+            sizeMB: f.file_size_mb,
+            status: f.status || "completed",
+            errorMessage: f.error_message,
+          }));
+          setFiles(mapped);
+          setTotalStorageGB(res.data.storage_config.total_storage_gb);
+
+          const stillPending = mapped.some((f: UploadedFile) => f.status === "pending" || f.status === "processing");
+          if (!stillPending) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            setHasBackgroundProcessing(false);
+          }
+        } catch (err) {
+          // Silently retry on next interval
+        }
+      }, 3000);
+    }
+
+    return () => {
+      if (pollingRef.current && !files.some(f => f.status === "pending" || f.status === "processing")) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [files]);
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
@@ -198,8 +238,27 @@ export default function DocumentsAndImages() {
 
   const handleSaveAndProcess = async () => {
     if (files.length === 0) return;
-    setIsProcessing(true);
+
+    const newFiles = files.filter(f => f.file);
+    if (newFiles.length === 0 && files.every(f => !f.file)) {
+      setAlertMessage("No new files to upload.");
+      return;
+    }
+
+    // Pre-check storage quota
+    const usedBytes = files.filter(f => !f.file).reduce((acc, f) => acc + parseFloat(f.sizeMB) * 1024 * 1024, 0);
+    const newBytes = newFiles.reduce((acc, f) => acc + (f.file?.size || 0), 0);
+    const limitBytes = totalStorageGB * 1024 * 1024 * 1024;
+    if (usedBytes + newBytes > limitBytes) {
+      setAlertMessage(`Upload exceeds your ${totalStorageGB} GB storage limit. Please remove some files or upgrade your storage.`);
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
     setProcessingDone(false);
+    setIsProcessing(true);
+    setAlertMessage("");
 
     try {
       const formData = new FormData();
@@ -213,30 +272,36 @@ export default function DocumentsAndImages() {
         }
       });
 
-      const res = await api.saveVaultFiles(formData);
+      const res = await api.uploadVaultFilesWithProgress(formData, (percent) => {
+        setUploadProgress(percent);
+      });
 
-      for (const step of PROCESSING_STEPS) {
-        setProcessingStep(step);
-        await new Promise(res => setTimeout(res, 900));
-      }
+      setIsUploading(false);
+      setUploadProgress(100);
 
+      // Update state from response
       setTotalStorageGB(res.data.storage_config.total_storage_gb);
-      if (res.data.storage_plans) {
-        setStoragePlans(res.data.storage_plans);
-      }
-      const mapped = res.data.files.map(f => ({
+      if (res.data.storage_plans) setStoragePlans(res.data.storage_plans);
+      const mapped = res.data.files.map((f: any) => ({
         id: String(f.id),
         name: f.file_name,
         sizeMB: f.file_size_mb,
+        status: f.status || "completed",
+        errorMessage: f.error_message,
       }));
       setFiles(mapped);
 
-      setIsProcessing(false);
-      setProcessingDone(true);
-      setProcessingStep("");
+      const hasPending = mapped.some((f: UploadedFile) => f.status === "pending" || f.status === "processing");
+      if (hasPending) {
+        setHasBackgroundProcessing(true);
+        setProcessingStep("Files uploaded! Encryption & secure storage in progress...");
+      } else {
+        setIsProcessing(false);
+        setProcessingDone(true);
+      }
     } catch (err) {
+      setIsUploading(false);
       setIsProcessing(false);
-      setProcessingStep("");
       setAlertMessage(err instanceof Error ? err.message : "Failed to save and secure files.");
     }
   };
@@ -277,11 +342,34 @@ export default function DocumentsAndImages() {
     return "📁";
   };
 
+  const completedCount = files.filter(f => f.status === "completed" || (!f.status && !f.file)).length;
+  const totalServerFiles = files.filter(f => !f.file).length;
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-10 text-black space-y-6">
 
       {/* ── Alert Modal ── */}
       <AlertModal message={alertMessage} onClose={() => setAlertMessage("")} />
+
+      {/* ── Background Processing Banner ── */}
+      {hasBackgroundProcessing && (
+        <div style={{
+          background: "#eff6ff",
+          border: "1px solid #93c5fd",
+          borderRadius: "12px",
+          padding: "14px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          fontSize: "14px",
+          color: "#1e40af",
+        }}>
+          <span style={{ fontSize: "18px" }}>🔄</span>
+          <span>
+            Background processing in progress — <strong>{completedCount}</strong> of <strong>{totalServerFiles}</strong> files secured. You can safely navigate away.
+          </span>
+        </div>
+      )}
 
       {/* ── Page Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -385,7 +473,56 @@ export default function DocumentsAndImages() {
                   <p className="text-sm font-medium text-gray-800 truncate">{f.name}</p>
                   <p className="text-xs text-gray-400">{f.sizeMB} MB</p>
                 </div>
-                {!f.file && (
+                {/* Status indicator */}
+                {f.status === "pending" && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "#ca8a04" }}>
+                    <span style={{
+                      width: "8px", height: "8px", borderRadius: "50%", background: "#eab308",
+                      display: "inline-block",
+                      animation: "pulse 1.5s ease-in-out infinite",
+                    }} />
+                    Queued
+                  </span>
+                )}
+                {f.status === "processing" && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "#2563eb" }}>
+                    <span style={{
+                      width: "14px", height: "14px", border: "2px solid #93c5fd",
+                      borderTopColor: "#2563eb", borderRadius: "50%",
+                      display: "inline-block",
+                      animation: "spin 0.8s linear infinite",
+                    }} />
+                    Encrypting...
+                  </span>
+                )}
+                {f.status === "failed" && (
+                  <span
+                    style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "#dc2626", cursor: "default" }}
+                    title={f.errorMessage || "File processing failed"}
+                  >
+                    <span style={{
+                      width: "8px", height: "8px", borderRadius: "50%", background: "#dc2626",
+                      display: "inline-block",
+                    }} />
+                    Failed
+                  </span>
+                )}
+                {!f.file && f.status === "completed" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void api.downloadVaultFile(Number(f.id), f.name).catch(err => {
+                        setAlertMessage(err instanceof Error ? err.message : "Failed to download file.");
+                      });
+                    }}
+                    className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 text-lg font-bold leading-none cursor-pointer mr-2"
+                    aria-label={`Download ${f.name}`}
+                    title="Download decrypted file"
+                  >
+                    📥
+                  </button>
+                )}
+                {!f.file && !f.status && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -413,6 +550,17 @@ export default function DocumentsAndImages() {
         )}
       </div>
 
+      {/* ── CSS Keyframes for status animations ── */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
       {/* ── SAVE / Process Files Button ── */}
       {files.length > 0 && (
         <div>
@@ -433,13 +581,54 @@ export default function DocumentsAndImages() {
                 : "🔒 Save & Secure Files"}
           </button>
 
-          {isProcessing && processingStep && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-              <svg className="animate-spin w-4 h-4 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              {processingStep}
+          {/* Upload progress bar */}
+          {isUploading && (
+            <div style={{
+              marginTop: "12px",
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              padding: "16px 20px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "14px", color: "#475569" }}>
+                <span style={{ fontSize: "16px" }}>📤</span>
+                <span>Uploading files to secure server... <strong>{uploadProgress}%</strong></span>
+              </div>
+              <div style={{
+                width: "100%",
+                height: "10px",
+                background: "#e2e8f0",
+                borderRadius: "6px",
+                overflow: "hidden",
+              }}>
+                <div style={{
+                  width: `${uploadProgress}%`,
+                  height: "100%",
+                  background: "linear-gradient(90deg, #3b82f6, #2563eb)",
+                  borderRadius: "6px",
+                  transition: "width 0.3s ease",
+                }} />
+              </div>
+              <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "6px", textAlign: "right" }}>{uploadProgress}%</p>
+            </div>
+          )}
+
+          {/* Background processing indicator */}
+          {!isUploading && hasBackgroundProcessing && (
+            <div style={{
+              marginTop: "12px",
+              background: "#f0f9ff",
+              border: "1px solid #93c5fd",
+              borderRadius: "12px",
+              padding: "16px 20px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", fontSize: "14px", color: "#1e40af" }}>
+                <span style={{ fontSize: "16px" }}>🔒</span>
+                <span style={{ fontWeight: 600 }}>Files uploaded! Encryption &amp; secure storage processing...</span>
+              </div>
+              <p style={{ fontSize: "12px", color: "#64748b", marginLeft: "28px" }}>
+                You can safely close this page. Your files will continue processing.
+              </p>
             </div>
           )}
         </div>

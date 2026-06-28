@@ -125,7 +125,7 @@ class StorageConfigSerializer(serializers.ModelSerializer):
 class UserVaultFileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserVaultFile
-        fields = ("id", "file_name", "file_size_mb", "uploaded_at")
+        fields = ("id", "file_name", "file_size_mb", "uploaded_at", "status", "error_message")
         read_only_fields = ("id", "uploaded_at")
 
 

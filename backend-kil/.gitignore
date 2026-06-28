@@ -12,3 +12,6 @@ staticfiles/
 *.py text eol=lf
 *.js text eol=lf
 * text=auto
+
+vault_staging/
+fontaine_db

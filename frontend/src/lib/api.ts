@@ -357,7 +357,7 @@ export const api = {
   getVaultFiles: () =>
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
-      files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+      files: Array<{ id: number; file_name: string; file_size_mb: string; status?: string; error_message?: string | null }>;
       storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "GET"),
   saveVaultFiles: (payload: {
@@ -366,7 +366,7 @@ export const api = {
   } | FormData) =>
     authorizedRequest<{
       storage_config: { total_storage_gb: number };
-      files: Array<{ id: number; file_name: string; file_size_mb: string }>;
+      files: Array<{ id: number; file_name: string; file_size_mb: string; status?: string; error_message?: string | null }>;
       storage_plans?: StoragePlan[];
     }>("dashboard/vault-files/", "POST", payload),
   downloadVaultFile: async (id: number, fileName: string) => {
@@ -388,6 +388,60 @@ export const api = {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
+  },
+  getVaultFileStatus: () =>
+    authorizedRequest<{
+      storage_config: { total_storage_gb: number };
+      files: Array<{ id: number; file_name: string; file_size_mb: string; status?: string; error_message?: string | null }>;
+    }>("dashboard/vault-files/status/", "GET"),
+  uploadVaultFilesWithProgress: (
+    formData: FormData,
+    onProgress: (percent: number) => void
+  ): Promise<ApiEnvelope<{
+    storage_config: { total_storage_gb: number };
+    files: Array<{ id: number; file_name: string; file_size_mb: string; status?: string; error_message?: string | null }>;
+    storage_plans?: StoragePlan[];
+  }>> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const apiUrl = typeof window !== "undefined"
+        ? (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+          ? (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000")
+          : window.location.origin)
+        : (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000");
+
+      xhr.open("POST", `${apiUrl}/api/v1/dashboard/vault-files/`);
+
+      const access = tokenStorage.getAccess();
+      if (access) {
+        xhr.setRequestHeader("Authorization", `Bearer ${access}`);
+      }
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300 && data.success !== false) {
+            resolve(data);
+          } else {
+            reject(new Error(data.message || "Upload failed."));
+          }
+        } catch {
+          reject(new Error("Invalid server response."));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Network error during upload."));
+      xhr.ontimeout = () => reject(new Error("Upload timed out."));
+      xhr.timeout = 3600000; // 1 hour timeout
+
+      xhr.send(formData);
+    });
   },
   getSetupAccounting: () =>
     authorizedRequest<{

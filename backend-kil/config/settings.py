@@ -199,6 +199,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# ── File Upload Limits (support up to 15 GB files) ─────────
+DATA_UPLOAD_MAX_MEMORY_SIZE = None  # No limit
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB threshold → temp disk
+VAULT_STAGING_DIR = BASE_DIR / "vault_staging"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -264,9 +269,8 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
 # ── Celery ──────────────────────────────────────────────────
-# Use in-memory broker and result backend.
-CELERY_BROKER_URL = "memory://"
-CELERY_RESULT_BACKEND = "cache+memory://"
+CELERY_BROKER_URL = env("REDIS_URL", default="redis://redis:6379/0")
+CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://redis:6379/0")
 
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"

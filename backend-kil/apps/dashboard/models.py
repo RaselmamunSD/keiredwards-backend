@@ -113,6 +113,12 @@ class StorageConfig(models.Model):
 
 
 class UserVaultFile(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("processing", "Processing"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+    ]
     user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="vault_files")
     file_name = models.CharField(max_length=255)
     file_size_mb = models.CharField(max_length=20)
@@ -120,16 +126,27 @@ class UserVaultFile(models.Model):
     encryption_key = models.CharField(max_length=255, blank=True, null=True)
     encryption_iv = models.CharField(max_length=255, blank=True, null=True)
     storage_bucket = models.IntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="completed")
+    staging_path = models.CharField(max_length=500, blank=True, null=True)
+    error_message = models.CharField(max_length=500, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def delete(self, *args, **kwargs):
+        # Clean up staging file if it exists
+        if self.staging_path:
+            import os
+            try:
+                if os.path.exists(self.staging_path):
+                    os.remove(self.staging_path)
+            except OSError:
+                pass
         if self.encrypted_file_path:
             from .s3_helper import delete_file
             delete_file(self.encrypted_file_path, self.storage_bucket)
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username} file: {self.file_name} ({self.file_size_mb} MB) [Bucket {self.storage_bucket}]"
+        return f"{self.user.username} file: {self.file_name} ({self.file_size_mb} MB) [Bucket {self.storage_bucket}] [{self.status}]"
 
 
 class SetupAccountingConfig(models.Model):
