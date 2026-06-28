@@ -31,13 +31,8 @@ export default function LoginPage() {
     }
   };
 
-  if (isLoading || isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <p className="text-sm text-green-400 font-semibold">Redirecting to dashboard...</p>
-      </div>
-    );
-  }
+  // Removed the isLoading || isLoggedIn early return to prevent SSG flashing.
+  // The useEffect will handle redirecting logged-in users.
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12">
