@@ -153,8 +153,8 @@ class BillingRecordSerializer(serializers.ModelSerializer):
 class CheckInHistoryRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = CheckInHistoryRecord
-        fields = ("id", "date", "time", "ip", "login_name", "device_os")
-        read_only_fields = ("id",)
+        fields = ("id", "date", "time", "ip", "login_name", "device_os", "created_at")
+        read_only_fields = ("id", "created_at")
 
 
 class ContactMessageSerializer(serializers.ModelSerializer):

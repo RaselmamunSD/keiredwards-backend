@@ -128,13 +128,17 @@ class PasswordResetSerializer(serializers.Serializer):
                 uid = user_uid
                 token = user_token
                 
-            send_mail(
-                subject="Password Reset Request",
-                message=f"Use this link to reset your password for user account '{user.username}': {reset_url}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
+            try:
+                from celery_app.tasks import send_password_reset_email
+                send_password_reset_email.delay(user.email, user.username, reset_url, settings.DEFAULT_FROM_EMAIL)
+            except Exception:
+                send_mail(
+                    subject="Password Reset Request",
+                    message=f"Use this link to reset your password for user account '{user.username}': {reset_url}",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
         return {"uid": uid, "token": token}
 
 

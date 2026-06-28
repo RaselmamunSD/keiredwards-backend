@@ -584,14 +584,7 @@ class SetupAccountingConfigView(APIView):
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
-        from datetime import datetime
-        history = list(CheckInHistoryRecord.objects.filter(user=request.user))
-        def parse_dt(record):
-            try:
-                return datetime.strptime(f"{record.date} {record.time}", "%m/%d/%Y %I:%M %p")
-            except Exception:
-                return datetime.min
-        history.sort(key=parse_dt, reverse=True)
+        history = CheckInHistoryRecord.objects.filter(user=request.user)
 
         from apps.payments.models import AddOnOption
         addons = AddOnOption.objects.exclude(key__startswith="press_release").exclude(key="extra_storage")
@@ -776,14 +769,7 @@ class SetupAccountingConfigView(APIView):
 
         services = ActiveService.objects.filter(user=request.user)
         billing = BillingRecord.objects.filter(user=request.user)
-        from datetime import datetime
-        history = list(CheckInHistoryRecord.objects.filter(user=request.user))
-        def parse_dt(record):
-            try:
-                return datetime.strptime(f"{record.date} {record.time}", "%m/%d/%Y %I:%M %p")
-            except Exception:
-                return datetime.min
-        history.sort(key=parse_dt, reverse=True)
+        history = CheckInHistoryRecord.objects.filter(user=request.user)
 
         return success_response(
             "Setup & Accounting updated successfully.",
@@ -860,7 +846,11 @@ class CheckInMagicLinkRequestView(APIView):
         frontend_url = getattr(django_settings, "FRONTEND_URL", "http://localhost:3000")
         magic_link = f"{frontend_url}/check-in/verify?token={token}"
 
+        from_email = getattr(django_settings, "DEFAULT_FROM_EMAIL", "no-reply@iwaskilledforthisinformation.one")
         try:
+            from celery_app.tasks import send_checkin_magic_link_email
+            send_checkin_magic_link_email.delay(checkin_email, magic_link, from_email)
+        except Exception:
             send_mail(
                 subject="Your Check-In Link — I Was Killed For This Information",
                 message=(
@@ -871,7 +861,7 @@ class CheckInMagicLinkRequestView(APIView):
                     f"If you did not request this, please ignore this email.\n\n"
                     f"— I Was Killed For This Information"
                 ),
-                from_email=getattr(django_settings, "DEFAULT_FROM_EMAIL", "no-reply@iwaskilledforthisinformation.one"),
+                from_email=from_email,
                 recipient_list=[checkin_email],
                 fail_silently=False,
             )

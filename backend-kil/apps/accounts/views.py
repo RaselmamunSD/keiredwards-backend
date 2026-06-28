@@ -27,6 +27,14 @@ class RegisterView(APIView):
         user = serializer.save()
         token_serializer = CustomTokenObtainPairSerializer(data={"username": user.username, "password": request.data["password"]})
         token_serializer.is_valid(raise_exception=True)
+        
+        # Trigger welcome email asynchronously using Celery
+        try:
+            from celery_app.tasks import send_welcome_email
+            send_welcome_email.delay(user.id)
+        except Exception as e:
+            pass
+
         return success_response(
             "Registration successful.",
             {

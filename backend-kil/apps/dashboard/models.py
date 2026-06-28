@@ -171,6 +171,10 @@ class CheckInHistoryRecord(models.Model):
     ip = models.CharField(max_length=50)
     login_name = models.CharField(max_length=150)
     device_os = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
 
     def __str__(self):
         return f"{self.user.username} check-in on {self.date} at {self.time}"
