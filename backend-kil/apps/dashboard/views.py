@@ -583,21 +583,7 @@ class SetupAccountingConfigView(APIView):
             defaults={"two_fa_email": request.user.email, "has_two_fa": False}
         )
 
-        if created:
-            ActiveService.objects.create(user=request.user, name="I Was Killed For This Information", additional_info="Daily Check-in", active_until="March 7, 2027", is_purchased=True)
-            ActiveService.objects.create(user=request.user, name="Additional Storage", additional_info="5 GB", active_until="March 7, 2027", is_purchased=True)
-            ActiveService.objects.create(user=request.user, name="Press Release", additional_info="250 count*", active_until="March 7, 2027", is_purchased=True)
-            ActiveService.objects.create(user=request.user, name="Two-Factor Authentication", additional_info="Checkin & Login", active_until="Not Purchased", is_purchased=False)
-            ActiveService.objects.create(user=request.user, name="Private Email", additional_info="500 Messages Per year", active_until="March 7, 2027", is_purchased=True)
-
-            BillingRecord.objects.create(user=request.user, date="02/23/2026", description="Professional Plan", amount="$29.99")
-            BillingRecord.objects.create(user=request.user, date="02/23/2026", description="Storage: 5 GB (Default)", amount="Included", is_included=True)
-            BillingRecord.objects.create(user=request.user, date="01/23/2026", description="Professional Plan", amount="$29.99")
-            BillingRecord.objects.create(user=request.user, date="12/23/2025", description="Professional Plan", amount="$29.99")
-
-            CheckInHistoryRecord.objects.create(user=request.user, date="02/24/2026", time="09:15 AM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
-            CheckInHistoryRecord.objects.create(user=request.user, date="02/17/2026", time="02:30 PM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
-            CheckInHistoryRecord.objects.create(user=request.user, date="02/10/2026", time="11:45 AM", ip="192.168.1.100", login_name=request.user.email, device_os="Windows 11")
+        # Removed fake mock data injection block.
 
         # Sync has_two_fa with the active service
         two_fa_service = ActiveService.objects.filter(user=request.user, name="Two-Factor Authentication").first()

@@ -349,13 +349,7 @@ export default function OverviewLayout() {
     router.push("/");
   };
 
-  if (authLoading || !isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-gray-500">Redirecting to login...</p>
-      </div>
-    );
-  }
+  // Removed authLoading block to prevent SSG flashing.
 
   if (error) {
     return (
@@ -377,8 +371,8 @@ export default function OverviewLayout() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-gray-500">Loading dashboard overview...</p>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <span className="inline-block h-10 w-10 rounded-full border-4 border-gray-200 border-t-[#EF3832] animate-spin" />
       </div>
     );
   }

@@ -24,9 +24,9 @@ export default function DashboardLayout() {
   } | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
-  const [lastCheckIn, setLastCheckIn] = useState("02/24/2026 09:15 AM");
-  const [nextDue, setNextDue] = useState("03/03/2026");
-  const [checkInStatus, setCheckInStatus] = useState("CHECK-IN OK");
+  const [lastCheckIn, setLastCheckIn] = useState("");
+  const [nextDue, setNextDue] = useState("");
+  const [checkInStatus, setCheckInStatus] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) {
@@ -73,7 +73,7 @@ export default function DashboardLayout() {
         setLastCheckIn("No check-ins yet");
       }
 
-      setNextDue(scheduleRes.data.renewal_date);
+      setNextDue(scheduleRes.data.renewal_date || "Not Configured");
       setCheckInStatus(scheduleRes.data.paused ? "PAUSED" : "CHECK-IN OK");
     } catch (err) {
       console.error("Failed to load dashboard summary metrics", err);
@@ -87,13 +87,7 @@ export default function DashboardLayout() {
     void loadDashboardData();
   }, [isLoggedIn]);
 
-  if (authLoading || !isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-gray-500">Redirecting to login...</p>
-      </div>
-    );
-  }
+  // Removed authLoading early return to prevent SSG white flash.
 
   return (
     <div className="min-h-screen bg-white w-full overflow-x-hidden">
