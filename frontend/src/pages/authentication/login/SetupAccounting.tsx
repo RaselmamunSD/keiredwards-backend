@@ -1,7 +1,7 @@
 // Tab 7 — Setup & Accounting
 
 import { useState, useEffect } from "react";
-import { MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowUp } from "react-icons/md";
+import { MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowUp, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import Swal from "sweetalert2";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -132,18 +132,34 @@ function InputField({ label, type, value, onChange, placeholder, error, autoComp
   label: string; type: string; value: string; onChange: (v: string) => void;
   placeholder?: string; error?: string; autoComplete?: string;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all
-          ${error ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-orange-200 focus:border-orange-400"}`}
-      />
+      <div className="relative">
+        <input
+          type={inputType}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all pr-10
+            ${error ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-orange-200 focus:border-orange-400"}`}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
+            onClick={() => setShowPassword(!showPassword)}
+            tabIndex={-1}
+          >
+            {showPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
+          </button>
+        )}
+      </div>
       {error && <p className="text-red-500 text-xs">{error}</p>}
     </div>
   );
@@ -332,14 +348,24 @@ function LoginContent({ userEmail, onSuccess }: { userEmail: string; onSuccess?:
         <>
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Enter New Password</label>
-            <input
-              type="password"
-              value={form.newPassword}
-              onChange={e => setField("newPassword", e.target.value)}
-              placeholder="Min. 8 characters"
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all
-                ${errors.newPassword ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-orange-200 focus:border-orange-400"}`}
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                value={form.newPassword}
+                onChange={e => setField("newPassword", e.target.value)}
+                placeholder="Min. 8 characters"
+                className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all pr-10
+                  ${errors.newPassword ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-orange-200 focus:border-orange-400"}`}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                tabIndex={-1}
+              >
+                {showNewPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
+              </button>
+            </div>
             {errors.newPassword && <p className="text-red-500 text-xs">{errors.newPassword}</p>}
             {/* Live strength indicator shown while typing */}
             <PasswordStrengthIndicator password={form.newPassword} />
@@ -462,11 +488,14 @@ function isWithinThreeMonthsOfExpiry(activeUntil: string): boolean {
 
 interface SubscriptionContentProps {
   services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
-  billing: Array<{ date: string; description: string; amount: string; is_included?: boolean }>;
+  billing: Array<{ id?: number; date: string; description: string; amount: string; is_included?: boolean }>;
+  startedDate: string;
+  storageUsedGB: number;
+  storageTotalGB: number;
   onRenew: (names: string[]) => Promise<void>;
 }
 
-function SubscriptionContent({ services, billing, onRenew }: SubscriptionContentProps) {
+function SubscriptionContent({ services, billing, startedDate, storageUsedGB, storageTotalGB, onRenew }: SubscriptionContentProps) {
   const [renewSuccess, setRenewSuccess] = useState(false);
   const [selectedRenew, setSelectedRenew] = useState<Record<string, boolean>>({});
 
@@ -510,7 +539,7 @@ function SubscriptionContent({ services, billing, onRenew }: SubscriptionContent
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
           <SubscriptionRow label="Plan" value={mainSvc?.additional_info ? `${mainSvc.additional_info.replace(" Check-in", "")} Check-In` : "—"} />
-          <SubscriptionRow label="Started" value={mainSvc?.active_until ? mainSvc.active_until.split(" ").slice(-1)[0] ?? "—" : "—"} />
+          <SubscriptionRow label="Started" value={startedDate} />
           <SubscriptionRow label="Renews" value={mainSvc?.active_until ?? "—"} />
           <SubscriptionRow label="Term" value="1 Year" />
           <SubscriptionRow
@@ -524,7 +553,7 @@ function SubscriptionContent({ services, billing, onRenew }: SubscriptionContent
               </div>
             }
           />
-          <SubscriptionRow label="Storage Used" value="0 GB / 7 GB" />
+          <SubscriptionRow label="Storage Used" value={`${storageUsedGB} GB / ${storageTotalGB} GB`} />
           <SubscriptionRow
             label="Distribution"
             value={
@@ -553,8 +582,8 @@ function SubscriptionContent({ services, billing, onRenew }: SubscriptionContent
               </span>
             }
           />
-          <SubscriptionRow label="Order #" value={lastBill ? `26-${lastBill.date.replace(/\//g, "")}-001` : "—"} />
-          <SubscriptionRow label="Method" value="PayPal" />
+          <SubscriptionRow label="Order #" value={lastBill ? `26-${lastBill.date.replace(/\//g, "")}-${String(lastBill.id || 1).padStart(3, "0")}` : "—"} />
+          <SubscriptionRow label="Method" value="Credit Card" />
           <SubscriptionRow label="Amount" value={totalAmount > 0 ? `$${totalAmount.toFixed(2)}` : (lastBill?.amount ?? "—")} />
         </div>
       </div>
@@ -591,10 +620,13 @@ function ActiveServicesContent({
   onRenew,
 }: {
   services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
-  billing: Array<{ date: string; description: string; amount: string; is_included?: boolean }>;
+  billing: Array<{ id?: number; date: string; description: string; amount: string; is_included?: boolean }>;
   onRenew: (names: string[]) => Promise<void>;
+  startedDate: string;
+  storageUsedGB: number;
+  storageTotalGB: number;
 }) {
-  return <SubscriptionContent services={services} billing={billing} onRenew={onRenew} />;
+  return <SubscriptionContent services={services} billing={billing} startedDate={startedDate} storageUsedGB={storageUsedGB} storageTotalGB={storageTotalGB} onRenew={onRenew} />;
 }
 
 // ─── Additional Services (formerly New Orders) ───────────────────────────────
@@ -963,7 +995,7 @@ function NewOrdersContent({ addonsList, pressOptionsList, purchasedServices, onS
 // ─── Billing History ──────────────────────────────────────────────────────────
 
 interface BillingHistoryProps {
-  billing: Array<{ date: string; description: string; amount: string; is_included?: boolean }>;
+  billing: Array<{ id?: number; date: string; description: string; amount: string; is_included?: boolean }>;
 }
 
 function BillingHistoryContent({ billing }: BillingHistoryProps) {
@@ -978,26 +1010,31 @@ function BillingHistoryContent({ billing }: BillingHistoryProps) {
               <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Method</th>
               <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Service</th>
               <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">PayPal Confirmation Code</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Transaction Code</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {billing.map((r, i) => (
-              <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-3 text-gray-700 whitespace-nowrap font-semibold">{r.date}</td>
-                <td className="px-3 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
-                  26-{r.date.replace(/\//g, "")}-{String(i + 1).padStart(3, "0")}
-                </td>
-                <td className="px-3 py-3 text-gray-700 whitespace-nowrap">PayPal</td>
-                <td className="px-3 py-3 text-gray-700">{r.description}</td>
-                <td className={`px-3 py-3 text-right font-semibold whitespace-nowrap ${r.is_included ? "text-green-600" : "text-gray-800"}`}>
-                  {r.is_included ? "Included" : r.amount}
-                </td>
-                <td className="px-3 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">
-                  {r.is_included ? "—" : `PP-${r.date.replace(/\//g, "")}${String(i + 1).padStart(2, "0")}`}
-                </td>
-              </tr>
-            ))}
+            {billing.map((r, i) => {
+              const txId = r.id ? String(r.id).padStart(3, "0") : String(i + 1).padStart(3, "0");
+              const ppId = r.id ? String(r.id).padStart(2, "0") : String(i + 1).padStart(2, "0");
+              const dateStr = r.date.replace(/\//g, "");
+              return (
+                <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
+                  <td className="px-3 py-3 text-gray-700 whitespace-nowrap font-semibold">{r.date}</td>
+                  <td className="px-3 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
+                    26-{dateStr}-{txId}
+                  </td>
+                  <td className="px-3 py-3 text-gray-700 whitespace-nowrap">Credit Card</td>
+                  <td className="px-3 py-3 text-gray-700">{r.description}</td>
+                  <td className={`px-3 py-3 text-right font-semibold whitespace-nowrap ${r.is_included ? "text-green-600" : "text-gray-800"}`}>
+                    {r.is_included ? "Included" : r.amount}
+                  </td>
+                  <td className="px-3 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">
+                    {r.is_included ? "—" : `TXN-${dateStr}${ppId}`}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1158,10 +1195,11 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
   const [data, setData] = useState<{
     config: { id: number; two_fa_enabled: boolean; two_fa_email: string; has_two_fa: boolean };
     services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
-    billing: Array<{ date: string; description: string; amount: string; is_included: boolean }>;
+    billing: Array<{ id?: number; date: string; description: string; amount: string; is_included: boolean }>;
     history: Array<{ date: string; time: string; ip: string; login_name: string; device_os: string }>;
     addons?: Array<{ key: string; label: string; description: string; price: number }>;
     press_release_options?: Array<{ key: string; label: string; description: string; price: number }>;
+    extra?: { startedDate: string; storageUsedGB: number; storageTotalGB: number };
   } | null>(null);
 
   const [open, setOpen] = useState<Record<string, boolean>>({
@@ -1171,8 +1209,34 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
 
   const loadData = async () => {
     try {
-      const res = await api.getSetupAccounting();
-      setData(res.data);
+      const [setupRes, vaultRes, profileRes] = await Promise.all([
+        api.getSetupAccounting(),
+        api.getVaultFiles(),
+        api.profile()
+      ]);
+      
+      const storageTotalGB = vaultRes.data.storage_config.total_storage_gb || 5;
+      const totalSizeMB = vaultRes.data.files.reduce((sum: number, f: any) => sum + parseFloat(f.file_size_mb || "0"), 0);
+      const storageUsedGB = parseFloat((totalSizeMB / 1024).toFixed(3));
+      
+      let startedDate = "-";
+      if (profileRes.data.date_joined) {
+        try {
+          const dateObj = new Date(profileRes.data.date_joined);
+          if (!isNaN(dateObj.getTime())) {
+            startedDate = `${String(dateObj.getMonth() + 1).padStart(2, '0')}/${String(dateObj.getDate()).padStart(2, '0')}/${dateObj.getFullYear()}`;
+          }
+        } catch (e) {}
+      }
+
+      setData({
+        ...setupRes.data,
+        extra: {
+          startedDate,
+          storageUsedGB,
+          storageTotalGB
+        }
+      });
       if (onRefresh) {
         onRefresh();
       }
@@ -1235,7 +1299,7 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
   if (!data) {
     return (
       <div className="p-4 lg:px-16 py-6 text-black flex items-center justify-center container mx-auto max-w-6xl min-h-[300px]">
-        <p className="text-sm text-gray-500">Loading setup and accounting details...</p>
+        <span className="inline-block h-10 w-10 rounded-full border-4 border-gray-200 border-t-[#EF3832] animate-spin" />
       </div>
     );
   }
@@ -1296,6 +1360,9 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
             <ActiveServicesContent
               services={data.services}
               billing={data.billing}
+              startedDate={data.extra?.startedDate || "-"}
+              storageUsedGB={data.extra?.storageUsedGB || 0}
+              storageTotalGB={data.extra?.storageTotalGB || 5}
               onRenew={handleRenewServices}
             />
           </AccordionContent>

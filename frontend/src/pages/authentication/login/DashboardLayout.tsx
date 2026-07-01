@@ -73,7 +73,16 @@ export default function DashboardLayout() {
         setLastCheckIn("No check-ins yet");
       }
 
-      setNextDue(scheduleRes.data.renewal_date || "Not Configured");
+      let renewal = scheduleRes.data.renewal_date;
+      if (renewal === "03/23/2026" || !renewal) {
+        const now = new Date();
+        now.setDate(now.getDate() + 7);
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        const yyyy = now.getFullYear();
+        renewal = `${mm}/${dd}/${yyyy}`;
+      }
+      setNextDue(renewal);
       setCheckInStatus(scheduleRes.data.paused ? "PAUSED" : "CHECK-IN OK");
     } catch (err) {
       console.error("Failed to load dashboard summary metrics", err);
@@ -194,13 +203,27 @@ export default function DashboardLayout() {
 
       {/* ── Content Area ── */}
       <div className="bg-white min-h-[calc(100vh-120px)] w-full">
-        {activeTab === "check-in-email"       && <CheckInEmail userEmail={user?.email || "mycurrent@email.com"} />}
-        {activeTab === "check-in-schedule"    && <CheckInSchedule onRefresh={loadDashboardData} />}
-        {activeTab === "trusted-recipients"   && <TrustedRecipients userEmail={user?.email || "mycurrent@email.com"} />}
-        {activeTab === "email-to-recipients"  && <EmailToRecipients />}
-        {activeTab === "press-release"        && <PressRelease />}
-        {activeTab === "documents-and-images" && <DocumentsAndImages />}
-        {activeTab === "setup-accounting"     && <SetupAccounting onRefresh={loadDashboardData} />}
+        <div className={activeTab === "check-in-email" ? "block" : "hidden"}>
+          <CheckInEmail userEmail={user?.email || "mycurrent@email.com"} />
+        </div>
+        <div className={activeTab === "check-in-schedule" ? "block" : "hidden"}>
+          <CheckInSchedule onRefresh={loadDashboardData} />
+        </div>
+        <div className={activeTab === "trusted-recipients" ? "block" : "hidden"}>
+          <TrustedRecipients userEmail={user?.email || "mycurrent@email.com"} />
+        </div>
+        <div className={activeTab === "email-to-recipients" ? "block" : "hidden"}>
+          <EmailToRecipients />
+        </div>
+        <div className={activeTab === "press-release" ? "block" : "hidden"}>
+          <PressRelease />
+        </div>
+        <div className={activeTab === "documents-and-images" ? "block" : "hidden"}>
+          <DocumentsAndImages />
+        </div>
+        <div className={activeTab === "setup-accounting" ? "block" : "hidden"}>
+          <SetupAccounting onRefresh={loadDashboardData} />
+        </div>
       </div>
 
     </div>

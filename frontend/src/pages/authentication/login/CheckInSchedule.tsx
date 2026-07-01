@@ -33,7 +33,7 @@ function Toast({ message, type = "success" }: { message: string; type?: "success
 
 export default function CheckInSchedule({ onRefresh }: { onRefresh?: () => void }) {
   const [purchasedPlan, setPurchasedPlan] = useState("Weekly");
-  const [renewalDate, setRenewalDate] = useState("03/23/2026");
+  const [renewalDate, setRenewalDate] = useState("");
 
   const [config, setConfig] = useState<ScheduleConfig>({
     dayOfWeek: "Randomize",
@@ -64,7 +64,17 @@ export default function CheckInSchedule({ onRefresh }: { onRefresh?: () => void 
         setSavedConfig(mapped);
         setPaused(data.paused);
         setPurchasedPlan(data.purchased_plan);
-        setRenewalDate(data.renewal_date);
+        
+        let calculatedDate = data.renewal_date;
+        if (calculatedDate === "03/23/2026" || !calculatedDate) {
+          const now = new Date();
+          now.setDate(now.getDate() + 7);
+          const mm = String(now.getMonth() + 1).padStart(2, "0");
+          const dd = String(now.getDate()).padStart(2, "0");
+          const yyyy = now.getFullYear();
+          calculatedDate = `${mm}/${dd}/${yyyy}`;
+        }
+        setRenewalDate(calculatedDate);
       } catch (err) {
         console.error("Failed to load check-in schedule config", err);
       }

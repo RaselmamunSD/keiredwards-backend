@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Payment, CheckInOption, AddOnOption
+from .models import Payment, CheckInOption, AddOnOption, SiteSetting
 
 
 @admin.register(CheckInOption)
@@ -14,6 +14,15 @@ class CheckInOptionAdmin(admin.ModelAdmin):
 class AddOnOptionAdmin(admin.ModelAdmin):
     list_display = ("key", "label", "price")
     search_fields = ("key", "label")
+
+
+@admin.register(SiteSetting)
+class SiteSettingAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "discount_2_years_pct", "discount_3_years_pct")
+
+    def has_add_permission(self, request):
+        # We only want one instance of site settings
+        return False if self.model.objects.count() > 0 else super().has_add_permission(request)
 
 
 @admin.register(Payment)

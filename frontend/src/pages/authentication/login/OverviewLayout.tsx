@@ -249,6 +249,10 @@ export default function OverviewLayout() {
           ? `Press Release (${pressSvc.additional_info || "250 count"})`
           : "Trusted Recipients";
 
+        const mainService = accountingRes.data.services.find((s: any) => s.name === "I Was Killed For This Information");
+        const subscriptionRenewsDate = mainService ? mainService.active_until : "March 7, 2027";
+        const standardStorageActiveUntil = subscriptionRenewsDate;
+
         const renewalDateStr = scheduleRes.data.renewal_date || "March 7, 2027";
         const parsedTime = Date.parse(renewalDateStr);
         let minutesRemaining = 999999;
@@ -256,9 +260,6 @@ export default function OverviewLayout() {
           const diffMs = parsedTime - Date.now();
           minutesRemaining = diffMs > 0 ? Math.floor(diffMs / 60000) : 0;
         }
-
-        const mainService = accountingRes.data.services.find((s: any) => s.name === "I Was Killed For This Information");
-        const standardStorageActiveUntil = mainService ? mainService.active_until : "March 7, 2027";
 
         const mappedServices: any[] = [
           {
@@ -327,7 +328,7 @@ export default function OverviewLayout() {
           subscription: {
             plan: `${scheduleRes.data.purchased_plan} Check-In`,
             started: startedDate,
-            renews: renewalDateStr,
+            renews: subscriptionRenewsDate,
             term: "1 Year",
             storage: `${storageTotalGB} GB`,
             storageUsedGB,

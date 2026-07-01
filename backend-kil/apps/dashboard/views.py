@@ -731,21 +731,29 @@ class SetupAccountingConfigView(APIView):
             except ValueError:
                 pass
 
+        from django.utils import timezone
+        from datetime import timedelta
+        now = timezone.now()
+        one_year_later = (now + timedelta(days=365)).strftime("%B %-d, %Y")
+        two_years_later = (now + timedelta(days=730)).strftime("%B %-d, %Y")
+        today_str = now.strftime("%m/%d/%Y")
+        next_checkin = (now + timedelta(days=7)).strftime("%m/%d/%Y")
+
         check_in_service = request.data.get("check_in_service")
         if check_in_service:
             ActiveService.objects.filter(user=request.user, name="I Was Killed For This Information").update(
                 additional_info=check_in_service,
                 is_purchased=True,
-                active_until="March 7, 2027"
+                active_until=one_year_later
             )
             plan_name = check_in_service.replace(" Check-In", "")
             CheckInScheduleConfig.objects.filter(user=request.user).update(
                 purchased_plan=plan_name,
-                renewal_date="March 7, 2027"
+                renewal_date=next_checkin
             )
             BillingRecord.objects.create(
                 user=request.user,
-                date="06/11/2026",
+                date=today_str,
                 description=f"Main Service: {check_in_service}",
                 amount="$91.00"
             )
@@ -761,15 +769,15 @@ class SetupAccountingConfigView(APIView):
         if renew_services:
             for sname in renew_services:
                 ActiveService.objects.filter(user=request.user, name=sname).update(
-                    active_until="March 7, 2028"
+                    active_until=two_years_later
                 )
                 if sname == "I Was Killed For This Information":
                     CheckInScheduleConfig.objects.filter(user=request.user).update(
-                        renewal_date="March 7, 2028"
+                        renewal_date=next_checkin
                     )
                 BillingRecord.objects.create(
                     user=request.user,
-                    date="06/11/2026",
+                    date=today_str,
                     description=f"Renewal: {sname}",
                     amount="$29.99"
                 )

@@ -43,13 +43,18 @@ class CheckInEmailConfig(models.Model):
         return f"{self.user.username}'s Check-In Email Config"
 
 
+def get_default_renewal_date():
+    from django.utils import timezone
+    from datetime import timedelta
+    return (timezone.now() + timedelta(days=7)).strftime("%m/%d/%Y")
+
 class CheckInScheduleConfig(models.Model):
     user = models.OneToOneField("accounts.User", on_delete=models.CASCADE, related_name="checkin_schedule_config")
     day_of_week = models.CharField(max_length=50, default="Randomize")
     grace_period = models.CharField(max_length=50, default="NONE")
     paused = models.BooleanField(default=False)
     purchased_plan = models.CharField(max_length=100, default="Weekly")
-    renewal_date = models.CharField(max_length=100, default="03/23/2026")
+    renewal_date = models.CharField(max_length=100, default=get_default_renewal_date)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

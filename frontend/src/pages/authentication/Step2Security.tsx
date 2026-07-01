@@ -69,9 +69,13 @@ interface Props {
   onChange: (addons: SecurityAddons) => void;
   onBack: () => void;
   onNext: () => void;
+  customAddonPrices?: Record<string, number> | null;
 }
 
-export default function Step2Security({ addons = DEFAULT_ADDONS, onChange, onBack, onNext }: Props) {
+export default function Step2Security({ addons = DEFAULT_ADDONS, onChange, onBack, onNext, customAddonPrices }: Props) {
+  const privateEmailPrice = customAddonPrices && customAddonPrices['private_email'] !== undefined ? customAddonPrices['private_email'] : 39;
+  const twoFAPrice = customAddonPrices && customAddonPrices['2fa'] !== undefined ? customAddonPrices['2fa'] : 39;
+
   return (
     <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 pb-10">
       {/* White card */}
@@ -97,7 +101,7 @@ export default function Step2Security({ addons = DEFAULT_ADDONS, onChange, onBac
           <AddonCard 
             icon="🔒"
             title="Private Check-In Email Address"
-            price="$39 / year"
+            price={`$${privateEmailPrice} / year`}
             added={addons.privateEmail}
             onToggle={() => onChange({ ...addons, privateEmail: !addons.privateEmail })}
             description={
@@ -115,7 +119,7 @@ export default function Step2Security({ addons = DEFAULT_ADDONS, onChange, onBac
           <AddonCard
             icon="🛡"
             title="Two-Factor Authentication (2FA)"
-            price="$39 / year"
+            price={`$${twoFAPrice} / year`}
             added={addons.twoFA}
             onToggle={() => onChange({ ...addons, twoFA: !addons.twoFA })}
             description={

@@ -331,8 +331,8 @@ export default function CheckInEmail({ userEmail }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-20 text-gray-500 font-bold">
-        Loading Check-In Email settings...
+      <div className="flex flex-col items-center justify-center p-20 min-h-[300px]">
+        <span className="inline-block h-10 w-10 rounded-full border-4 border-gray-200 border-t-[#EF3832] animate-spin" />
       </div>
     );
   }

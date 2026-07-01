@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.core.responses import success_response
 
 from .gateway import PapylGatewayClient, PapylGatewayError
-from .models import Payment, CheckInOption, AddOnOption
+from .models import Payment, CheckInOption, AddOnOption, SiteSetting
 from .serializers import PaymentCreateSerializer, PaymentSerializer, PaymentVerifySerializer
 
 
@@ -179,6 +179,15 @@ class PaymentVerifyView(APIView):
                     press_option = metadata.get("press_option")
 
                     from apps.dashboard.models import SetupAccountingConfig, ActiveService, BillingRecord, StorageConfig, CheckInScheduleConfig, PressReleaseConfig
+                    from django.utils import timezone
+                    from datetime import timedelta
+                    
+                    now = timezone.now()
+                    one_year_later = (now + timedelta(days=365)).strftime("%B %-d, %Y")
+                    today_str = now.strftime("%m/%d/%Y")
+                    
+                    # Next check-in date (example logic: 7 days from now)
+                    next_checkin = (now + timedelta(days=7)).strftime("%m/%d/%Y")
 
                     # 1. Fetch or create SetupAccountingConfig for user
                     config, created = SetupAccountingConfig.objects.get_or_create(
@@ -191,7 +200,7 @@ class PaymentVerifyView(APIView):
                         for sname in purchase_services:
                             ActiveService.objects.filter(user=payment.user, name=sname).update(
                                 is_purchased=True,
-                                active_until="March 7, 2027"
+                                active_until=one_year_later
                             )
                             if sname == "Two-Factor Authentication":
                                 config.has_two_fa = True
@@ -212,7 +221,7 @@ class PaymentVerifyView(APIView):
                             BillingRecord.objects.get_or_create(
                                 user=payment.user,
                                 description=f"Purchase: {sname}",
-                                defaults={"date": "06/11/2026", "amount": price_str}
+                                defaults={"date": today_str, "amount": price_str}
                             )
 
                     # 3. Process extra storage
@@ -227,12 +236,12 @@ class PaymentVerifyView(APIView):
                                 ActiveService.objects.filter(user=payment.user, name="Additional Storage").update(
                                     additional_info=f"{5 + gb} GB",
                                     is_purchased=True,
-                                    active_until="March 7, 2027"
+                                    active_until=one_year_later
                                 )
                                 BillingRecord.objects.get_or_create(
                                     user=payment.user,
                                     description=f"Storage: {gb} GB Extra",
-                                    defaults={"date": "06/11/2026", "amount": f"${gb * 15}.00"}
+                                    defaults={"date": today_str, "amount": f"${gb * 15}.00"}
                                 )
                         except Exception as e:
                             pass
@@ -242,24 +251,24 @@ class PaymentVerifyView(APIView):
                         ActiveService.objects.filter(user=payment.user, name="I Was Killed For This Information").update(
                             additional_info=check_in_service,
                             is_purchased=True,
-                            active_until="March 7, 2027"
+                            active_until=one_year_later
                         )
                         plan_name = check_in_service.replace(" Check-In", "")
                         CheckInScheduleConfig.objects.filter(user=payment.user).update(
                             purchased_plan=plan_name,
-                            renewal_date="March 7, 2027"
+                            renewal_date=next_checkin
                         )
                         BillingRecord.objects.get_or_create(
                             user=payment.user,
                             description=f"Main Service: {check_in_service}",
-                            defaults={"date": "06/11/2026", "amount": "$91.00"}
+                            defaults={"date": today_str, "amount": "$91.00"}
                         )
 
                     # 5. Process press option
                     if press_option:
                         ActiveService.objects.filter(user=payment.user, name="Press Release").update(
                             is_purchased=True,
-                            active_until="March 7, 2027"
+                            active_until=one_year_later
                         )
                         tier_map = {
                             "press_release": 0,
@@ -288,6 +297,7 @@ class PricingConfigView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
+        site_setting = SiteSetting.objects.first()
         check_in_options = CheckInOption.objects.all().order_by("price_per_month")
         add_ons = AddOnOption.objects.all()
 
@@ -319,6 +329,10 @@ class PricingConfigView(APIView):
             {
                 "check_in_options": formatted_check_in,
                 "add_ons": formatted_addons,
+                "discounts": {
+                    "discount_2_years_pct": site_setting.discount_2_years_pct if site_setting else 5,
+                    "discount_3_years_pct": site_setting.discount_3_years_pct if site_setting else 10,
+                },
             },
             status.HTTP_200_OK,
         )

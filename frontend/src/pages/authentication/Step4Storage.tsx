@@ -10,7 +10,7 @@
 // 5. Invoice only renders rows for items the user has actually selected (zero rows hidden)
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { z } from "zod";
 import { api } from "@/lib/api";
 import { SecurityAddons, Step3Data, Step4Data } from "./SignupFlow";
@@ -142,14 +142,17 @@ function computePricing(
   step4: Step4Data,
   addons: SecurityAddons,
   step3: Step3Data,
-  customServicePrices?: Record<string, Record<string, number>> | null,
-  customAddonPrices?: Record<string, number> | null
+  customServicePrices: Record<string, Record<string, number>> | null = null,
+  customAddonPrices: Record<string, number> | null = null,
+  customDiscounts: { discount_2_years_pct: number; discount_3_years_pct: number } | null = null
 ): PricingBreakdown {
-  const termYears = parseInt(step4.checkInTerm) || 0;
+  const termYears = parseInt(step4.checkInTerm) || 1;
 
   // Discount percentage for storage and add-ons
   // (Check-In service discounts are already baked into SERVICE_TERM_PRICES)
-  const discountPct = termYears === 2 ? 5 : termYears === 3 ? 10 : 0;
+  const discount2 = customDiscounts ? customDiscounts.discount_2_years_pct : 5;
+  const discount3 = customDiscounts ? customDiscounts.discount_3_years_pct : 10;
+  const discountPct = termYears === 2 ? discount2 : termYears === 3 ? discount3 : 0;
   const discountMultiplier = 1 - discountPct / 100;
 
   // ── Check-In Service ──────────────────────────────────────────────────────
@@ -287,58 +290,17 @@ function SelectField({ label, value, onChange, options, placeholder, error }: Se
   );
 }
 
-// ─── Tiered storage hint ──────────────────────────────────────────────────────
-
-function StorageTiers({ gb, termYears, discountPct }: { gb: number; termYears: number; discountPct: number }) {
-  const perYear = calcStorageCostPerYear(gb);
-  const effectiveYears = Math.max(termYears, 1);
-  const rawTotal = perYear * effectiveYears;
-  const discountMultiplier = 1 - discountPct / 100;
-  const discountedTotal = parseFloat((rawTotal * discountMultiplier).toFixed(2));
-  const saved = parseFloat((rawTotal - discountedTotal).toFixed(2));
-
-  return (
-    <div className="bg-[#f8f8f8] border border-black/8 rounded-xl px-4 py-3 mb-6 text-xs text-[#555] leading-relaxed">
-      {/* <p className="font-bold text-[#333] mb-1.5 text-sm">Tiered Pricing — Additional Storage</p>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1.5">
-        <span className={gb >= 1 && gb <= 10 ? "text-[#e8281e] font-bold" : ""}>1–10 GB: $15/GB/yr</span>
-        <span className={gb > 10 && gb <= 49  ? "text-[#e8281e] font-bold" : ""}>11–49 GB: $10/GB/yr</span>
-        <span className={gb >= 50             ? "text-[#e8281e] font-bold" : ""}>50+ GB: $5/GB/yr</span>
-      </div> */}
-      {gb > 0 && (
-        <>
-          <p className="text-[#333] font-medium">
-            {gb} GB ={" "}
-            <span className="text-[#e8281e]">${perYear.toFixed(0)}/yr</span>
-            {effectiveYears > 1 && (
-              <span className="text-[#777]">
-                {" "}× {effectiveYears} yrs ={" "}
-                <span className="text-[#777] line-through">${rawTotal.toFixed(0)}</span>
-              </span>
-            )}
-            {discountPct > 0 && (
-              <span className="text-[#e8281e] font-bold">
-                {" "}→ ${discountedTotal.toFixed(0)} after {discountPct}% off
-              </span>
-            )}
-          </p>
-          {discountPct > 0 && saved > 0 && (
-            <p className="text-green-600 font-medium mt-0.5">You save ${saved.toFixed(2)} on storage</p>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
-  data?: Step4Data;
+  data: Step4Data;
   onChange: (data: Step4Data) => void;
-  addons?: SecurityAddons;
-  step3?: Step3Data;
+  addons: SecurityAddons;
+  step3: Step3Data;
   onBack: () => void;
+  customServicePrices?: Record<string, Record<string, number>> | null;
+  customAddonPrices?: Record<string, number> | null;
+  customDiscounts?: { discount_2_years_pct: number; discount_3_years_pct: number } | null;
 }
 
 export default function Step4Storage({
@@ -347,48 +309,18 @@ export default function Step4Storage({
   addons = DEFAULT_ADDONS,
   step3 = DEFAULT_STEP3,
   onBack,
+  customServicePrices = null,
+  customAddonPrices = null,
+  customDiscounts = null,
 }: Props) {
   const [errors, setErrors] = useState<Step4Errors>({});
   const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
-  const [customServicePrices, setCustomServicePrices] = useState<Record<string, Record<string, number>> | null>(null);
-  const [customAddonPrices, setCustomAddonPrices] = useState<Record<string, number> | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    api.getPricingConfig()
-      .then((res) => {
-        if (!active) return;
-        const data = res.data;
-        if (data.check_in_options && data.check_in_options.length > 0) {
-          const svcPrices: Record<string, Record<string, number>> = {};
-          data.check_in_options.forEach((opt) => {
-            svcPrices[opt.key] = {
-              "1": opt.price_1_year,
-              "2": opt.price_2_years,
-              "3": opt.price_3_years,
-            };
-          });
-          setCustomServicePrices(svcPrices);
-        }
-        if (data.add_ons && data.add_ons.length > 0) {
-          const addPrices: Record<string, number> = {};
-          data.add_ons.forEach((addon) => {
-            addPrices[addon.key] = addon.price;
-          });
-          setCustomAddonPrices(addPrices);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load dynamic pricing config:", err);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const p = computePricing(data, addons, step3, customServicePrices, customAddonPrices);
+  const p = useMemo(
+    () => computePricing(data, addons, step3, customServicePrices, customAddonPrices, customDiscounts),
+    [data, addons, step3, customServicePrices, customAddonPrices, customDiscounts]
+  );
 
   const set = <K extends keyof Step4Data>(field: K, value: Step4Data[K]) => {
     const updated = { ...data, [field]: value };
@@ -429,7 +361,6 @@ export default function Step4Storage({
   if (p.serviceCost > 0) {
     invoiceRows.push({
       label: p.serviceLabel,
-      // value: `$${p.serviceCost.toLocaleString()}`,
       value: `$${p.serviceCost.toFixed(2)}`,
     });
   }
@@ -457,16 +388,16 @@ export default function Step4Storage({
       step3.pressRelease1000 ? "Press Release (1,000 outlets)" :
       step3.pressRelease500  ? "Press Release (500 outlets)"   :
       step3.pressRelease250  ? "Press Release (250 outlets)"   : "Press Release";
-    // invoiceRows.push({ label: pressLabel, value: `$${p.pressCost.toLocaleString()}` });
     invoiceRows.push({ label: pressLabel, value: `$${p.pressCost.toFixed(2)}` });
   }
 
   if (p.twoFACost > 0) {
+    const twoFA_rate = customAddonPrices?.['2fa'] ?? 39;
     const effectiveYears = Math.max(p.termYears, 1);
     const sub =
       p.discountPct > 0
-        ? `$39/yr × ${effectiveYears} yr — ${p.discountPct}% off`
-        : `$39/yr × ${effectiveYears} yr`;
+        ? `$${twoFA_rate}/yr × ${effectiveYears} yr — ${p.discountPct}% off`
+        : `$${twoFA_rate}/yr × ${effectiveYears} yr`;
     invoiceRows.push({
       label: `Two-Factor Auth (2FA)`,
       value: `$${p.twoFACost.toFixed(2)}`,
@@ -475,11 +406,12 @@ export default function Step4Storage({
   }
 
   if (p.privateEmailCost > 0) {
+    const privateEmail_rate = customAddonPrices?.['private_email'] ?? 39;
     const effectiveYears = Math.max(p.termYears, 1);
     const sub =
       p.discountPct > 0
-        ? `$39/yr × ${effectiveYears} yr — ${p.discountPct}% off`
-        : `$39/yr × ${effectiveYears} yr`;
+        ? `$${privateEmail_rate}/yr × ${effectiveYears} yr — ${p.discountPct}% off`
+        : `$${privateEmail_rate}/yr × ${effectiveYears} yr`;
     invoiceRows.push({
       label: `Private Email`,
       value: `$${p.privateEmailCost.toFixed(2)}`,
@@ -585,8 +517,8 @@ export default function Step4Storage({
               placeholder="Select term…"
               options={[
                 { value: "1", label: "1 Year" },
-                { value: "2", label: "2 Years (5% off)" },
-                { value: "3", label: "3 Years (10% off)" },
+                { value: "2", label: `2 Years (${customDiscounts?.discount_2_years_pct ?? 5}% off)` },
+                { value: "3", label: `3 Years (${customDiscounts?.discount_3_years_pct ?? 10}% off)` },
               ]}
               error={errors.checkInTerm}
             />

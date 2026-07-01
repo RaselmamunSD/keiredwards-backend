@@ -230,6 +230,10 @@ export const api = {
         description: string;
         price: number;
       }>;
+      discounts: {
+        discount_2_years_pct: number;
+        discount_3_years_pct: number;
+      };
     }>("payments/pricing/", "GET"),
   dashboardSummary: () =>
     authorizedRequest<{

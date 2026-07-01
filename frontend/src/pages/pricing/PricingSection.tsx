@@ -73,6 +73,7 @@ const PricingSection = () => {
   const [checkInOptions, setCheckInOptions] = useState<CheckInOption[]>(CHECK_IN_OPTIONS);
   const [addOns, setAddOns] = useState<AddOn[]>(ADD_ONS);
   const [selectedCheckIn, setSelectedCheckIn] = useState<CheckInOption>(CHECK_IN_OPTIONS[0]);
+  const [termOptions, setTermOptions] = useState<TermOption[]>(TERM_OPTIONS);
   const [selectedTerm, setSelectedTerm]       = useState<TermOption>(TERM_OPTIONS[0]);
 
   useEffect(() => {
@@ -100,6 +101,16 @@ const PricingSection = () => {
               pricePerYear: addon.price,
             }));
           setAddOns(filtered);
+        }
+        if (data.discounts) {
+          const newTerms = [
+            { label: "1 Year",  years: 1, savingLabel: "Standard pricing" },
+            { label: "2 Years", years: 2, savingLabel: `Save ${data.discounts.discount_2_years_pct}%` },
+            { label: "3 Years", years: 3, savingLabel: `Save ${data.discounts.discount_3_years_pct}%` },
+          ];
+          setTermOptions(newTerms);
+          // if we want to preserve the selected term's updated text:
+          setSelectedTerm(prev => newTerms.find(t => t.years === prev.years) || newTerms[0]);
         }
       })
       .catch((err) => {
@@ -218,14 +229,14 @@ const PricingSection = () => {
                     <select
                       value={selectedTerm.label}
                       onChange={(e) => {
-                        const found = TERM_OPTIONS.find((o) => o.label === e.target.value);
+                        const found = termOptions.find((o) => o.label === e.target.value);
                         if (found) setSelectedTerm(found);
                       }}
                       className="w-full bg-[#1c1c1c] border border-white/10 text-white rounded-lg px-4 py-3 text-sm appearance-none cursor-pointer focus:outline-none focus:border-white/25 pr-10"
                     >
-                      {TERM_OPTIONS.map((opt) => (
-                        <option key={opt.label} value={opt.label}>
-                          {opt.years} Year{opt.years > 1 ? "s" : ""} — {opt.savingLabel}
+                      {termOptions.map((term, i) => (
+                        <option key={term.label} value={term.label}>
+                          {term.years} Year{term.years > 1 ? "s" : ""} — {term.savingLabel}
                         </option>
                       ))}
                     </select>

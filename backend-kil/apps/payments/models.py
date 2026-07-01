@@ -56,3 +56,20 @@ class AddOnOption(models.Model):
         verbose_name = "Add-On Option"
         verbose_name_plural = "Add-On Options"
 
+
+class SiteSetting(models.Model):
+    discount_2_years_pct = models.IntegerField(
+        default=5, 
+        help_text="Discount percentage for 2-year terms (e.g. 5 for 5%)"
+    )
+    discount_3_years_pct = models.IntegerField(
+        default=10, 
+        help_text="Discount percentage for 3-year terms (e.g. 10 for 10%)"
+    )
+
+    def __str__(self):
+        return "Global Site Settings"
+
+    class Meta:
+        verbose_name = "Site Setting"
+        verbose_name_plural = "Site Settings"

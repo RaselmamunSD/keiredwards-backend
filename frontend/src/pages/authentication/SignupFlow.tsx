@@ -3,9 +3,10 @@
 // SignupFlow — orchestrator with updated types and tiered storage pricing.
 // All global state lives here and is passed down as props.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { api } from "@/lib/api";
 import Step1Signup from "./Step1Signup";
 import Step2Security from "./Step2Security";
 import Step3Recipients from "./Step3Recipients";
@@ -152,6 +153,46 @@ export default function SignupFlow() {
     checkInTerm: "",
   });
 
+  const [customServicePrices, setCustomServicePrices] = useState<Record<string, Record<string, number>> | null>(null);
+  const [customAddonPrices, setCustomAddonPrices] = useState<Record<string, number> | null>(null);
+  const [customDiscounts, setCustomDiscounts] = useState<{ discount_2_years_pct: number; discount_3_years_pct: number } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api.getPricingConfig()
+      .then((res) => {
+        if (!active) return;
+        const data = res.data;
+        if (data.check_in_options && data.check_in_options.length > 0) {
+          const svcPrices: Record<string, Record<string, number>> = {};
+          data.check_in_options.forEach((opt: any) => {
+            svcPrices[opt.key] = {
+              "1": opt.price_1_year,
+              "2": opt.price_2_years,
+              "3": opt.price_3_years,
+            };
+          });
+          setCustomServicePrices(svcPrices);
+        }
+        if (data.add_ons && data.add_ons.length > 0) {
+          const addPrices: Record<string, number> = {};
+          data.add_ons.forEach((addon: any) => {
+            addPrices[addon.key] = addon.price;
+          });
+          setCustomAddonPrices(addPrices);
+        }
+        if (data.discounts) {
+          setCustomDiscounts(data.discounts);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load dynamic pricing config:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#080808] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Top accent bar */}
@@ -206,13 +247,22 @@ export default function SignupFlow() {
           <Step1Signup data={step1} onChange={setStep1} onNext={() => setCurrentStep(2)} />
         )}
         {currentStep === 2 && (
-          <Step2Security addons={addons} onChange={setAddons} onBack={() => setCurrentStep(1)} onNext={() => setCurrentStep(3)} />
+          <Step2Security addons={addons} onChange={setAddons} onBack={() => setCurrentStep(1)} onNext={() => setCurrentStep(3)} customAddonPrices={customAddonPrices} />
         )}
         {currentStep === 3 && (
           <Step3Recipients data={step3} onChange={setStep3} onBack={() => setCurrentStep(2)} onNext={() => setCurrentStep(4)} />
         )}
         {currentStep === 4 && (
-          <Step4Storage data={step4} onChange={setStep4} addons={addons} step3={step3} onBack={() => setCurrentStep(3)} />
+          <Step4Storage 
+            data={step4} 
+            onChange={setStep4} 
+            addons={addons} 
+            step3={step3} 
+            onBack={() => setCurrentStep(3)} 
+            customServicePrices={customServicePrices} 
+            customAddonPrices={customAddonPrices} 
+            customDiscounts={customDiscounts}
+          />
         )}
       </div>
     </div>
