@@ -311,9 +311,6 @@ export default function CheckInSchedule({ onRefresh }: { onRefresh?: () => void 
         </div>
 
         <div className="flex flex-col items-start sm:items-end gap-2">
-          <span className="text-sm text-blue-600 font-medium">
-            Next Check-In: <span className="font-bold">{renewalDate}</span>
-          </span>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={handlePauseToggle}
