@@ -241,6 +241,7 @@ function LoginContent({ userEmail, onSuccess }: { userEmail: string; onSuccess?:
   const [errors, setErrors] = useState<AnyErrors>({});
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const setField = (key: string, val: string) => { setForm(p => ({ ...p, [key]: val })); setErrors(p => ({ ...p, [key]: undefined })); };
 
   const handleSave = async () => {
@@ -618,6 +619,9 @@ function ActiveServicesContent({
   services,
   billing,
   onRenew,
+  startedDate,
+  storageUsedGB,
+  storageTotalGB,
 }: {
   services: Array<{ name: string; additional_info: string; active_until: string; is_purchased: boolean }>;
   billing: Array<{ id?: number; date: string; description: string; amount: string; is_included?: boolean }>;
