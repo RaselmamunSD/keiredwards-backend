@@ -1407,7 +1407,6 @@ function LoginSecurityContentWithCallback({
 }: LoginSecurityProps) {
   const [twoFAEmail, setTwoFAEmail] = useState(initialEmail);
   const [saved, setSaved] = useState(false);
-  const [testSent, setTestSent] = useState(false);
   const [localEnabled, setLocalEnabled] = useState(twoFAEnabled);
 
   useEffect(() => {
@@ -1456,12 +1455,6 @@ function LoginSecurityContentWithCallback({
     }
   };
 
-  const handleTestEmail = () => {
-    if (!twoFAEmail.trim()) return;
-    setTestSent(true);
-    setTimeout(() => setTestSent(false), 4000);
-  };
-
   return (
     <div className="text-sm space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
@@ -1472,11 +1465,6 @@ function LoginSecurityContentWithCallback({
       {saved && (
         <div className="bg-green-50 border border-green-300 text-green-700 text-xs px-4 py-2.5 rounded-lg flex items-center gap-2">
           <span>✓</span> 2FA email saved successfully.
-        </div>
-      )}
-      {testSent && (
-        <div className="bg-blue-50 border border-blue-300 text-blue-800 text-xs px-4 py-2.5 rounded-lg">
-          Test 2FA email sent to {twoFAEmail}.
         </div>
       )}
 
@@ -1504,25 +1492,24 @@ function LoginSecurityContentWithCallback({
           >
             SAVE
           </button>
-          <button
-            onClick={handleTestEmail}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer"
-          >
-            TEST EMAIL
-          </button>
-          <button
-            onClick={async () => { const ok = await onUpdate(true, twoFAEmail); if (ok) setLocalEnabled(true); }}
-            disabled={!twoFAEmail.trim()}
-            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${localEnabled ? "bg-green-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
-          >
-            ENABLE 2FA
-          </button>
-          <button
-            onClick={async () => { const ok = await onUpdate(false, twoFAEmail); if (ok) setLocalEnabled(false); }}
-            className={`text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer ${!localEnabled ? "bg-gray-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
-          >
-            DISABLE 2FA
-          </button>
+          
+          {twoFAEmail.trim() && (
+            localEnabled ? (
+              <button
+                onClick={async () => { const ok = await onUpdate(false, twoFAEmail); if (ok) setLocalEnabled(false); }}
+                className="bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                DISABLE 2FA
+              </button>
+            ) : (
+              <button
+                onClick={async () => { const ok = await onUpdate(true, twoFAEmail); if (ok) setLocalEnabled(true); }}
+                className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                ENABLE 2FA
+              </button>
+            )
+          )}
         </div>
       </div>
 
