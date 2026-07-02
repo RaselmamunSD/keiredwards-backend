@@ -498,119 +498,105 @@ interface SubscriptionContentProps {
 
 function SubscriptionContent({ services, billing, startedDate, storageUsedGB, storageTotalGB, onRenew }: SubscriptionContentProps) {
   const [renewSuccess, setRenewSuccess] = useState(false);
-  const [selectedRenew, setSelectedRenew] = useState<Record<string, boolean>>({});
+  const [renewing, setRenewing] = useState<string | null>(null);
 
-  const mainSvc = services.find((s) => s.name === "I Was Killed For This Information");
-  const additionalStorage = services.find((s) => s.name === "Additional Storage");
-  const pressSvc = services.find((s) => s.name === "Press Release");
-  const privateEmailSvc = services.find((s) => s.name === "Private Email");
-  const twoFASvc = services.find((s) => s.name === "Two-Factor Authentication");
+  const purchasedServices = services.filter((s) => s.is_purchased);
 
-  const purchasedBills = billing.filter((b) => !b.is_included);
-  const lastBill = purchasedBills[0];
-  const totalAmount = purchasedBills.reduce((sum, b) => {
-    const num = parseFloat(b.amount.replace(/[^0-9.]/g, ""));
-    return sum + (isNaN(num) ? 0 : num);
-  }, 0);
+  const handleRenewSingle = async (name: string) => {
+    setRenewing(name);
+    try {
+      await onRenew([name]);
+      setRenewSuccess(true);
+      setTimeout(() => setRenewSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRenewing(null);
+    }
+  };
 
-  const renewableServices = services.filter(
-    (s) => s.is_purchased && isWithinThreeMonthsOfExpiry(s.active_until)
-  );
-
-  const handleRenewSelected = async () => {
-    const names = Object.entries(selectedRenew).filter(([, v]) => v).map(([k]) => k);
-    if (names.length === 0) return;
-    await onRenew(names);
-    setRenewSuccess(true);
-    setSelectedRenew({});
-    setTimeout(() => setRenewSuccess(false), 3000);
+  const getPrice = (name: string) => {
+    if (name === "I Was Killed For This Information") return "$91.00";
+    if (name === "Additional Storage") return "$15.00+"; 
+    if (name === "Two-Factor Authentication") return "$39.00";
+    if (name === "Private Email") return "$39.00";
+    if (name === "Press Release") return "$250.00+";
+    return "—";
+  };
+  
+  const getLabel = (s: any) => {
+    if (s.name === "I Was Killed For This Information") return s.additional_info ? `${s.additional_info.replace(" Check-in", "")} Check-In` : "Main Check-In Plan";
+    if (s.name === "Additional Storage") return `Extra Storage (${s.additional_info})`;
+    if (s.name === "Press Release") return `Press Release (${s.additional_info})`;
+    return s.name;
   };
 
   return (
     <div className="space-y-4">
       {renewSuccess && (
         <div className="bg-green-50 border border-green-300 text-green-700 text-xs px-4 py-2.5 rounded-lg flex items-center gap-2">
-          <span>✓</span> Selected services have been renewed successfully.
+          <span>✓</span> Service renewed successfully.
         </div>
       )}
 
       <div className="border border-gray-200 rounded-xl overflow-hidden">
-        <div className="bg-blue-50 px-5 py-3 border-b border-gray-200">
-          <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest">Subscription</h3>
+        <div className="bg-blue-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest">Active Subscriptions</h3>
+          <span className="text-xs text-blue-600 font-medium">Storage Used: {storageUsedGB} GB / {storageTotalGB} GB</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-          <SubscriptionRow label="Plan" value={mainSvc?.additional_info ? `${mainSvc.additional_info.replace(" Check-in", "")} Check-In` : "—"} />
-          <SubscriptionRow label="Started" value={startedDate} />
-          <SubscriptionRow label="Renews" value={mainSvc?.active_until ?? "—"} />
-          <SubscriptionRow label="Term" value="1 Year" />
-          <SubscriptionRow
-            label="Storage"
-            value={
-              <div>
-                <div>Standard 5 GB</div>
-                {additionalStorage?.is_purchased && (
-                  <div className="text-gray-700 font-semibold">{additionalStorage.additional_info || "Additional"}</div>
-                )}
-              </div>
-            }
-          />
-          <SubscriptionRow label="Storage Used" value={`${storageUsedGB} GB / ${storageTotalGB} GB`} />
-          <SubscriptionRow
-            label="Distribution"
-            value={
-              pressSvc?.is_purchased ? (
-                <div>
-                  <div>{pressSvc.additional_info || "Press Release"}</div>
-                </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs uppercase">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Service</th>
+                <th className="px-5 py-3 font-semibold">Start Date</th>
+                <th className="px-5 py-3 font-semibold">End Date</th>
+                <th className="px-5 py-3 font-semibold">Price/Yr</th>
+                <th className="px-5 py-3 font-semibold text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {purchasedServices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-gray-500">
+                    No active subscriptions found.
+                  </td>
+                </tr>
               ) : (
-                <span className="text-gray-600">Trusted Recipients</span>
-              )
-            }
-          />
-          <SubscriptionRow
-            label="Private Email"
-            value={
-              <span className={privateEmailSvc?.is_purchased ? "text-gray-900" : "text-red-600"}>
-                {privateEmailSvc?.is_purchased ? "Active" : "Not Purchased"}
-              </span>
-            }
-          />
-          <SubscriptionRow
-            label="Two-Factor Authentication (2FA)"
-            value={
-              <span className={twoFASvc?.is_purchased ? "text-gray-900" : "text-orange-600"}>
-                {twoFASvc?.is_purchased ? "Active" : "Not Configured"}
-              </span>
-            }
-          />
-          <SubscriptionRow label="Order #" value={lastBill ? `26-${lastBill.date.replace(/\//g, "")}-${String(lastBill.id || 1).padStart(3, "0")}` : "—"} />
-          <SubscriptionRow label="Method" value="Credit Card" />
-          <SubscriptionRow label="Amount" value={totalAmount > 0 ? `$${totalAmount.toFixed(2)}` : (lastBill?.amount ?? "—")} />
+                purchasedServices.map((s, i) => {
+                  const isExpiringSoon = isWithinThreeMonthsOfExpiry(s.active_until);
+                  return (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-4 text-gray-900 font-medium">{getLabel(s)}</td>
+                      <td className="px-5 py-4 text-gray-600">{startedDate}</td>
+                      <td className="px-5 py-4">
+                        <span className={`font-medium ${isExpiringSoon ? "text-orange-600" : "text-gray-900"}`}>
+                          {s.active_until}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-gray-600">{getPrice(s.name)}</td>
+                      <td className="px-5 py-4 text-right">
+                        {isExpiringSoon ? (
+                          <button
+                            onClick={() => handleRenewSingle(s.name)}
+                            disabled={renewing === s.name}
+                            className="bg-orange-400 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-1.5 rounded transition-colors"
+                          >
+                            {renewing === s.name ? "RENEWING..." : "RENEW"}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-
-      {renewableServices.length > 0 && (
-        <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Renewal Available (within 3 months of expiration)</p>
-          {renewableServices.map((s) => (
-            <label key={s.name} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!selectedRenew[s.name]}
-                onChange={(e) => setSelectedRenew((p) => ({ ...p, [s.name]: e.target.checked }))}
-                className="w-4 h-4 accent-orange-400"
-              />
-              {s.name} — expires {s.active_until}
-            </label>
-          ))}
-          <button
-            onClick={handleRenewSelected}
-            className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors"
-          >
-            RENEW SELECTED
-          </button>
-        </div>
-      )}
     </div>
   );
 }
