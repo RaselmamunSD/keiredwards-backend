@@ -135,27 +135,11 @@ export default function PressRelease() {
   const handleUpgradeTier = async (tierIndex: number, priceStr: string | null) => {
     if (priceStr === null) return;
     try {
-      const priceNum = parseFloat(priceStr.replace("$", ""));
-      if (isNaN(priceNum)) {
-        throw new Error("Invalid price for the selected tier.");
-      }
-      localStorage.setItem("checkout_amount", priceNum.toString());
-      localStorage.setItem(
-        "checkout_order_items",
-        JSON.stringify([
-          { label: `${tiers[tierIndex].count} Media Outlets Upgrade`, price: priceNum }
-        ])
-      );
-      localStorage.setItem(
-        "checkout_metadata",
-        JSON.stringify({
-          type: "press_release_upgrade",
-          tier: tierIndex
-        })
-      );
-      window.location.href = "/payment";
+      const res = await api.savePressRelease({ current_tier: tierIndex });
+      setCurrentTier(res.data.current_tier);
+      setAlertMessage(`Successfully upgraded to ${tiers[tierIndex].count} Media Outlets.`);
     } catch (err) {
-      setAlertMessage(err instanceof Error ? err.message : "Failed to initiate payment.");
+      setAlertMessage("Failed to automate upgrade.");
     }
   };
 
@@ -204,10 +188,10 @@ export default function PressRelease() {
         </div>
         <button
           onClick={handleActiveToggle}
-          disabled={!isActive && !isPurchased}
+          disabled={!isPurchased}
           className={`text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${
-            !isActive && !isPurchased
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+            !isPurchased
+              ? "bg-gray-400 cursor-not-allowed opacity-80"
               : isActive
               ? "bg-red-500 hover:bg-red-400"
               : "bg-green-500 hover:bg-green-400"
