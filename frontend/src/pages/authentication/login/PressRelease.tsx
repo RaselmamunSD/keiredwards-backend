@@ -135,11 +135,27 @@ export default function PressRelease() {
   const handleUpgradeTier = async (tierIndex: number, priceStr: string | null) => {
     if (priceStr === null) return;
     try {
-      const res = await api.savePressRelease({ current_tier: tierIndex });
-      setCurrentTier(res.data.current_tier);
-      setAlertMessage(`Successfully upgraded to ${tiers[tierIndex].count} Media Outlets.`);
+      const priceNum = parseFloat(priceStr.replace("$", ""));
+      if (isNaN(priceNum)) {
+        throw new Error("Invalid price for the selected tier.");
+      }
+      localStorage.setItem("checkout_amount", priceNum.toString());
+      localStorage.setItem(
+        "checkout_order_items",
+        JSON.stringify([
+          { label: `${tiers[tierIndex].count} Media Outlets Upgrade`, price: priceNum }
+        ])
+      );
+      localStorage.setItem(
+        "checkout_metadata",
+        JSON.stringify({
+          type: "press_release_upgrade",
+          tier: tierIndex
+        })
+      );
+      window.location.href = "/payment";
     } catch (err) {
-      setAlertMessage("Failed to automate upgrade.");
+      setAlertMessage(err instanceof Error ? err.message : "Failed to initiate payment.");
     }
   };
 
