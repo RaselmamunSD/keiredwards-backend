@@ -351,24 +351,14 @@ export default function PressRelease() {
             {/* FIX: UPGRADE button now shows modal instead of doing nothing */}
             <button
               onClick={handleUpgradeNext}
-              disabled={!isPurchased || safeCurrentTier + 1 >= tiers.length}
-              className={`text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors ${
-                !isPurchased || safeCurrentTier + 1 >= tiers.length
-                  ? "bg-gray-400 cursor-not-allowed opacity-80"
-                  : "bg-green-500 hover:bg-green-400 cursor-pointer"
-              }`}
+              className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors cursor-pointer"
             >
               UPGRADE
             </button>
             {/* FIX: ORDER button now shows modal instead of doing nothing */}
             <button
               onClick={handleUpgradeNext}
-              disabled={!isPurchased || safeCurrentTier + 1 >= tiers.length}
-              className={`text-xs font-bold px-5 py-2 rounded-lg transition-colors ${
-                !isPurchased || safeCurrentTier + 1 >= tiers.length
-                  ? "bg-gray-200 text-gray-500 cursor-not-allowed border-gray-300"
-                  : "border border-gray-300 hover:bg-gray-50 text-gray-700 cursor-pointer"
-              }`}
+              className="border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold px-5 py-2 rounded-lg transition-colors cursor-pointer"
             >
               ORDER
             </button>
@@ -398,12 +388,7 @@ export default function PressRelease() {
               ) : index > safeCurrentTier ? (
                 <button
                   onClick={() => handleUpgradeTier(index, tier.price)}
-                  disabled={!isPurchased}
-                  className={`text-white text-xs font-bold px-4 py-2 rounded-lg w-fit transition-colors ${
-                    !isPurchased
-                      ? "bg-gray-400 cursor-not-allowed opacity-80"
-                      : "bg-green-500 hover:bg-green-400 cursor-pointer"
-                  }`}
+                  className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-4 py-2 rounded-lg w-fit transition-colors cursor-pointer"
                 >
                   UPGRADE — {tier.price}
                 </button>
