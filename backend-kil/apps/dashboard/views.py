@@ -865,14 +865,21 @@ class CheckInMagicLinkRequestView(APIView):
 
         CheckInMagicLink.objects.create(user=user, token=token, expires_at=expires_at)
 
-        frontend_url = getattr(django_settings, "FRONTEND_URL", "http://localhost:3000")
+        origin = request.headers.get('Origin')
+        referer = request.headers.get('Referer')
+        if origin:
+            frontend_url = origin.rstrip('/')
+        elif referer:
+            frontend_url = referer.split('/check-in')[0].rstrip('/')
+        else:
+            frontend_url = getattr(django_settings, "FRONTEND_URL", "http://localhost:3000")
+
         magic_link = f"{frontend_url}/check-in/verify?token={token}"
 
         from_email = getattr(django_settings, "DEFAULT_FROM_EMAIL", "no-reply@iwaskilledforthisinformation.one")
+        
+        # Send email synchronously to ensure delivery
         try:
-            from celery_app.tasks import send_checkin_magic_link_email
-            send_checkin_magic_link_email.delay(checkin_email, magic_link, from_email)
-        except Exception:
             send_mail(
                 subject="Your Check-In Link — I Was Killed For This Information",
                 message=(
@@ -888,14 +895,15 @@ class CheckInMagicLinkRequestView(APIView):
                 fail_silently=False,
             )
         except Exception as exc:
-            # If email fails, still return the link in debug mode so it can be tested
+            # If email fails, return a 500 error but in debug mode return the link
             if getattr(django_settings, "DEBUG", False):
                 return success_response(
                     "DEBUG: Email not sent (check console). Magic link included in response.",
                     {"magic_link": magic_link, "checkin_email": checkin_email},
                     status.HTTP_200_OK,
                 )
-            raise exc
+            from rest_framework.exceptions import APIException
+            raise APIException(f"Failed to send email: {str(exc)}")
 
         return success_response(
             f"A check-in link has been sent to {checkin_email}. Please check your inbox.",
