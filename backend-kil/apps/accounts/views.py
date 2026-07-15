@@ -87,7 +87,81 @@ class LoginView(APIView):
 
         User = get_user_model()
         user = User.objects.filter(id=user_id).first()
+
         if user:
+            # ── Check if 2FA is enabled for this user ──
+            try:
+                from apps.dashboard.models import SetupAccountingConfig
+                config = SetupAccountingConfig.objects.filter(user=user).first()
+                if config and config.two_fa_enabled and config.two_fa_email:
+                    # Generate 6-digit code and send via email
+                    import random
+                    from datetime import timedelta
+                    from django.utils import timezone
+                    from .models import TwoFactorCode
+                    from django.core.mail import send_mail
+                    from django.conf import settings
+
+                    code = str(random.randint(100000, 999999))
+                    expires_at = timezone.now() + timedelta(minutes=5)
+
+                    # Invalidate any previous unused codes
+                    TwoFactorCode.objects.filter(user=user, is_used=False).update(is_used=True)
+
+                    # Create new code
+                    tfa = TwoFactorCode.objects.create(
+                        user=user,
+                        code=code,
+                        expires_at=expires_at,
+                    )
+
+                    # Send email with the code
+                    try:
+                        send_mail(
+                            subject="Your Login Verification Code",
+                            message=(
+                                f"Your 2FA verification code is: {code}\n\n"
+                                f"This code will expire in 5 minutes.\n\n"
+                                f"If you did not request this code, please ignore this email."
+                            ),
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[config.two_fa_email],
+                            fail_silently=True,
+                        )
+                    except Exception:
+                        pass
+
+                    # Log the attempt but don't create full login audit yet
+                    AuthAuditLog.objects.create(
+                        user=user,
+                        action="2fa_code_sent",
+                        method=request.method,
+                        endpoint=request.path,
+                        was_successful=True,
+                        ip_address=request.META.get("REMOTE_ADDR"),
+                        user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                    )
+
+                    # Return temp_token instead of JWT tokens
+                    # Mask email: show first 2 chars + *** + domain
+                    email = config.two_fa_email
+                    at_idx = email.index("@")
+                    masked = email[:2] + "***" + email[at_idx:]
+
+                    return success_response(
+                        "2FA verification required.",
+                        {
+                            "requires_2fa": True,
+                            "temp_token": str(tfa.temp_token),
+                            "masked_email": masked,
+                        },
+                        status.HTTP_200_OK,
+                    )
+            except Exception:
+                # If 2FA check fails for any reason, fall through to normal login
+                pass
+
+            # ── Normal login (no 2FA) ──
             AuthAuditLog.objects.create(
                 user=user,
                 action="login",
@@ -130,6 +204,88 @@ class LoginView(APIView):
         return success_response(
             "Login successful.",
             {"refresh": refresh_token, "access": access_token},
+            status.HTTP_200_OK,
+        )
+
+
+class Verify2FAView(APIView):
+    """Verify 2FA code and return JWT tokens."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        temp_token = request.data.get("temp_token")
+        code = request.data.get("code")
+
+        if not temp_token or not code:
+            raise AuthenticationFailed("Verification code and token are required.")
+
+        from .models import TwoFactorCode
+        try:
+            tfa = TwoFactorCode.objects.get(temp_token=temp_token)
+        except TwoFactorCode.DoesNotExist:
+            raise AuthenticationFailed("Invalid verification session.")
+
+        if tfa.is_used:
+            raise AuthenticationFailed("This verification code has already been used.")
+
+        if tfa.is_expired:
+            raise AuthenticationFailed("Verification code has expired. Please login again.")
+
+        if tfa.code != code:
+            raise AuthenticationFailed("Invalid verification code.")
+
+        # Mark code as used
+        tfa.is_used = True
+        tfa.save(update_fields=["is_used"])
+
+        # Generate JWT tokens for the user
+        user = tfa.user
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+
+        # Create audit log and check-in history
+        AuthAuditLog.objects.create(
+            user=user,
+            action="login",
+            method=request.method,
+            endpoint=request.path,
+            was_successful=True,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+        )
+        try:
+            from apps.dashboard.models import CheckInHistoryRecord
+            from django.utils import timezone
+            now = timezone.now()
+
+            ua = request.META.get("HTTP_USER_AGENT", "").lower()
+            if "windows" in ua:
+                device_os = "Windows"
+            elif "macintosh" in ua or "mac os" in ua:
+                device_os = "macOS"
+            elif "iphone" in ua or "ipad" in ua:
+                device_os = "iOS"
+            elif "android" in ua:
+                device_os = "Android"
+            elif "linux" in ua:
+                device_os = "Linux"
+            else:
+                device_os = "Unknown"
+
+            CheckInHistoryRecord.objects.create(
+                user=user,
+                date=now.strftime("%m/%d/%Y"),
+                time=now.strftime("%I:%M %p"),
+                ip=request.META.get("REMOTE_ADDR") or "127.0.0.1",
+                login_name=user.email or user.username,
+                device_os=device_os,
+            )
+        except Exception:
+            pass
+
+        return success_response(
+            "Login successful.",
+            {"refresh": str(refresh), "access": str(refresh.access_token)},
             status.HTTP_200_OK,
         )
 

@@ -180,7 +180,9 @@ export const api = {
     last_name?: string;
   }) => rawRequest<{ user: unknown; tokens: { access: string; refresh: string } }>("auth/register/", "POST", payload),
   login: (credentials: { username: string; password: string }) =>
-    rawRequest<{ access: string; refresh: string }>("auth/login/", "POST", credentials),
+    rawRequest<{ access?: string; refresh?: string; requires_2fa?: boolean; temp_token?: string; masked_email?: string }>("auth/login/", "POST", credentials),
+  verify2FA: (payload: { temp_token: string; code: string }) =>
+    rawRequest<{ access: string; refresh: string }>("auth/2fa/verify/", "POST", payload),
   logout: () =>
     authorizedRequest<{}>("auth/logout/", "POST", { refresh: tokenStorage.getRefresh() }),
   passwordReset: (email: string) =>

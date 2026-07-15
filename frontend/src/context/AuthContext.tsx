@@ -59,6 +59,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (credentials: LoginCredentials) => {
     const response = await api.login(credentials);
+    // If 2FA is required, tokens won't be present — handled in StepCredentials
+    if (!response.data.access || !response.data.refresh) return;
     tokenStorage.set({
       access: response.data.access,
       refresh: response.data.refresh,

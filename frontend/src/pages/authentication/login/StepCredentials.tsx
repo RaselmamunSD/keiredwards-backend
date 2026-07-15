@@ -3,7 +3,7 @@
 // Right: legal warning panel in bordered box
 
 import { LoginCredentials } from "@/Types/Types";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { z } from "zod";
@@ -91,6 +91,23 @@ export default function StepCredentials({ onSuccess }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // ── 2FA State ──
+  const [show2FA, setShow2FA] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [otpError, setOtpError] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // ── Resend cooldown timer ──
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
   const set = (field: keyof LoginCredentials, value: string) => {
     const updated = { ...form, [field]: value };
     setForm(updated);
@@ -121,13 +138,27 @@ export default function StepCredentials({ onSuccess }: Props) {
         password: form.password,
       });
       
-      // Store tokens
-      tokenStorage.set({
-        access: response.data.access,
-        refresh: response.data.refresh,
-      });
+      // Check if 2FA is required
+      if (response.data.requires_2fa && response.data.temp_token) {
+        setTempToken(response.data.temp_token);
+        setMaskedEmail(response.data.masked_email || "");
+        setOtpDigits(["", "", "", "", "", ""]);
+        setOtpError("");
+        setShow2FA(true);
+        setResendCooldown(60);
+        // Focus first input after render
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
+        return;
+      }
 
-      onSuccess(form);
+      // Normal login (no 2FA)
+      if (response.data.access && response.data.refresh) {
+        tokenStorage.set({
+          access: response.data.access,
+          refresh: response.data.refresh,
+        });
+        onSuccess(form);
+      }
     } catch (error) {
       const message = error instanceof ApiRequestError 
         ? error.message 
@@ -144,6 +175,208 @@ export default function StepCredentials({ onSuccess }: Props) {
     }
   };
 
+  // ── 2FA handlers ──
+  const handleOtpChange = (index: number, value: string) => {
+    // Only allow digits
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const newDigits = [...otpDigits];
+    newDigits[index] = digit;
+    setOtpDigits(newDigits);
+    setOtpError("");
+
+    // Auto-focus next input
+    if (digit && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === "Enter") {
+      handleVerify2FA();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted.length > 0) {
+      const newDigits = [...otpDigits];
+      for (let i = 0; i < 6; i++) {
+        newDigits[i] = pasted[i] || "";
+      }
+      setOtpDigits(newDigits);
+      // Focus last filled input or the next empty one
+      const focusIdx = Math.min(pasted.length, 5);
+      inputRefs.current[focusIdx]?.focus();
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    const code = otpDigits.join("");
+    if (code.length !== 6) {
+      setOtpError("Please enter the full 6-digit code.");
+      return;
+    }
+
+    setIsVerifying(true);
+    setOtpError("");
+    try {
+      const response = await api.verify2FA({ temp_token: tempToken, code });
+      tokenStorage.set({
+        access: response.data.access,
+        refresh: response.data.refresh,
+      });
+      onSuccess(form);
+    } catch (error) {
+      const message = error instanceof ApiRequestError
+        ? error.message
+        : "Verification failed. Please try again.";
+      setOtpError(message);
+      setOtpDigits(["", "", "", "", "", ""]);
+      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+    setIsLoading(true);
+    try {
+      const response = await api.login({
+        username: form.username,
+        password: form.password,
+      });
+      if (response.data.requires_2fa && response.data.temp_token) {
+        setTempToken(response.data.temp_token);
+        setOtpDigits(["", "", "", "", "", ""]);
+        setOtpError("");
+        setResendCooldown(60);
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      }
+    } catch {
+      setOtpError("Failed to resend code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── 2FA Verification Screen ──
+  if (show2FA) {
+    return (
+      <div className="flex flex-col items-center w-full max-w-md">
+        {/* ── Site Logo ── */}
+        <Link href="/" className="flex items-center gap-3 mb-10 group shrink-0">
+          <Image
+            src="/website_logo/logo.svg"
+            width={50}
+            height={50}
+            alt="I Was Killed For This Information"
+          />
+          <div className="flex flex-col justify-center leading-tight">
+            <span
+              className="block text-[1.5rem] uppercase leading-none tracking-wide text-white"
+              style={{ fontFamily: "var(--font-anton)", fontWeight: 400 }}
+            >
+              I WAS KILLED
+            </span>
+            <span
+              className="block text-[1rem] uppercase leading-none tracking-wide mt-1 text-[#EF3832]"
+              style={{ fontFamily: "var(--font-anton)", fontWeight: 400 }}
+            >
+              FOR THIS INFORMATION
+            </span>
+          </div>
+        </Link>
+
+        {/* ── 2FA Card ── */}
+        <div className="w-full bg-white/5 backdrop-blur-sm border border-gray-600 rounded-xl p-8">
+          {/* Icon */}
+          <div className="flex justify-center mb-5">
+            <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+          </div>
+
+          <h2 className="text-white text-xl font-bold text-center mb-2">Two-Factor Authentication</h2>
+          <p className="text-gray-400 text-sm text-center mb-6">
+            A 6-digit verification code has been sent to<br />
+            <span className="text-green-400 font-semibold">{maskedEmail}</span>
+          </p>
+
+          {/* ── 6-digit OTP Input ── */}
+          <div className="flex justify-center gap-2 mb-4" onPaste={handleOtpPaste}>
+            {otpDigits.map((digit, i) => (
+              <input
+                key={i}
+                ref={(el) => { inputRefs.current[i] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleOtpChange(i, e.target.value)}
+                onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                className={`w-12 h-14 text-center text-xl font-bold bg-white text-black rounded-lg border-2 focus:outline-none focus:ring-0 transition-colors ${
+                  otpError
+                    ? "border-red-500"
+                    : digit
+                    ? "border-green-400"
+                    : "border-gray-300 focus:border-green-400"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Error message */}
+          {otpError && (
+            <p className="text-red-400 text-xs text-center mb-4">{otpError}</p>
+          )}
+
+          {/* Verify button */}
+          <button
+            onClick={handleVerify2FA}
+            disabled={isVerifying || otpDigits.join("").length !== 6}
+            className="w-full bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed text-black font-bold text-sm py-3 rounded-lg uppercase tracking-widest transition-colors cursor-pointer mb-4"
+          >
+            {isVerifying ? "Verifying..." : "VERIFY CODE"}
+          </button>
+
+          {/* Resend / Back */}
+          <div className="flex items-center justify-between text-xs">
+            <button
+              onClick={handleResendCode}
+              disabled={resendCooldown > 0 || isLoading}
+              className={`transition-colors ${
+                resendCooldown > 0
+                  ? "text-gray-500 cursor-not-allowed"
+                  : "text-green-400 hover:text-green-300 cursor-pointer"
+              }`}
+            >
+              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend Code"}
+            </button>
+            <button
+              onClick={() => {
+                setShow2FA(false);
+                setOtpDigits(["", "", "", "", "", ""]);
+                setOtpError("");
+                setTempToken("");
+              }}
+              className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+            >
+              ← Back to login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal Login Screen ──
   return (
     <div className="flex flex-col items-center w-full max-w-4xl">
 

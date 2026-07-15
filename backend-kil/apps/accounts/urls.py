@@ -11,12 +11,14 @@ from .views import (
     ProfileView,
     RefreshTokenView,
     RegisterView,
+    Verify2FAView,
     VerifyTokenView,
 )
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="auth-register"),
     path("login/", LoginView.as_view(), name="auth-login"),
+    path("2fa/verify/", Verify2FAView.as_view(), name="auth-2fa-verify"),
     path("logout/", LogoutView.as_view(), name="auth-logout"),
     path("token/refresh/", RefreshTokenView.as_view(), name="token-refresh"),
     path("token/verify/", VerifyTokenView.as_view(), name="token-verify"),
