@@ -23,17 +23,25 @@ def create_cpanel_email(email_address, email_password, quota=500):
         return False, "cPanel credentials are not fully configured."
         
     try:
-        # Split email into user and domain
         if '@' not in email_address:
             return False, "Invalid email format."
             
         email_user, domain = email_address.split('@')
         
-        # Build the UAPI URL
-        # Format: https://cpanel.domain.com:2083/execute/Email/add_pop
-        base_url = f"{cpanel_host.rstrip('/')}:{cpanel_port}/execute/Email/add_pop"
+        session = requests.Session()
+        login_url = f"{cpanel_host.rstrip(':2083')}:{cpanel_port}/login/?login_only=1"
+        login_data = {'user': cpanel_user, 'pass': cpanel_pass}
         
-        # Prepare parameters
+        # Login to get security token and cookies
+        login_response = session.post(login_url, data=login_data, verify=False, timeout=10)
+        login_response.raise_for_status()
+        
+        token = login_response.json().get('security_token')
+        if not token:
+            return False, "Failed to authenticate with cPanel. Invalid credentials."
+            
+        # Call UAPI to create email
+        uapi_url = f"{cpanel_host.rstrip(':2083')}:{cpanel_port}{token}/execute/Email/add_pop"
         params = {
             'email': email_user,
             'password': email_password,
@@ -42,31 +50,17 @@ def create_cpanel_email(email_address, email_password, quota=500):
             'send_welcome_email': 0
         }
         
-        # Make the request to cPanel API
-        response = requests.get(
-            base_url, 
-            params=params, 
-            auth=(cpanel_user, cpanel_pass),
-            verify=False # We disable SSL verification in case the cPanel cert is self-signed
-        )
+        uapi_response = session.get(uapi_url, params=params, verify=False, timeout=15)
+        uapi_response.raise_for_status()
+        data = uapi_response.json()
         
-        if response.status_code != 200:
-            return False, f"Failed to connect to cPanel API. Status: {response.status_code}"
-            
-        data = response.json()
-        
-        # Check UAPI response format
         if data.get('status') == 1:
             return True, "Email account created successfully."
         else:
-            # Extract error message
             errors = data.get('errors', [])
             error_msg = errors[0] if errors else "Unknown error occurred while creating email."
-            
-            # Check if email already exists
             if "already exists" in error_msg.lower():
                 return False, "This email address is already taken. Please try another one."
-                
             return False, error_msg
             
     except Exception as e:
