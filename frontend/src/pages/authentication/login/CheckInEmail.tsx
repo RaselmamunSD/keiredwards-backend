@@ -324,7 +324,7 @@ export default function CheckInEmail({ userEmail }: Props) {
 
   const domains = ["@domain1.com", "@domain2.com", "@domain3.com", "@domain4.com", "@domain5.com"];
 
-  const webmailUrl = "https://mail.privateemail.com";
+  const webmailUrl = "https://mysafemail.xyz";
   const fullPrivateEmail = privateAddressSaved && privateUsername ? `${privateUsername}@Mysafemail.xyz` : null;
 
   // ── Render ───────────────────────────────────────────────────────────────────
