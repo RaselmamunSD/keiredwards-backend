@@ -87,10 +87,17 @@ class PaymentRequiredMiddleware:
 
         # Allow unauthenticated paths or specific paths
         exempt_paths = [
+            # accounts namespace
             "/api/v1/accounts/register/",
             "/api/v1/accounts/login/",
             "/api/v1/accounts/password-reset/",
             "/api/v1/accounts/password-reset/confirm/",
+            # auth namespace (used by frontend)
+            "/api/v1/auth/register/",
+            "/api/v1/auth/login/",
+            "/api/v1/auth/password/reset/",
+            "/api/v1/auth/2fa/",
+            # payments
             "/api/v1/payments/",
             "/api/v1/payments/create/",
             "/api/v1/payments/verify/",
