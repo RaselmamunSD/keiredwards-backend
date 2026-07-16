@@ -920,7 +920,7 @@ class CheckInMagicLinkRequestView(APIView):
                     status.HTTP_200_OK,
                 )
             from rest_framework.exceptions import APIException
-            raise APIException(f"Failed to send email: {str(exc)}")
+            raise APIException("Failed to send check-in email. Please verify that your email is correct or try again later.")
 
         return success_response(
             f"A check-in link has been sent to {checkin_email}. Please check your inbox.",
