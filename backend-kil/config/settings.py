@@ -296,6 +296,12 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@fontaine.local")
 
+# cPanel API Settings
+CPANEL_HOST = env("CPANEL_HOST", default="")
+CPANEL_PORT = env.int("CPANEL_PORT", default=2083)
+CPANEL_USERNAME = env("CPANEL_USERNAME", default="")
+CPANEL_PASSWORD = env("CPANEL_PASSWORD", default="")
+
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 
 PAPYL_BASE_URL = env("PAPYL_BASE_URL", default="https://api.papyl.com/v1")

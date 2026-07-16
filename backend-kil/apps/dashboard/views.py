@@ -140,6 +140,23 @@ class CheckInEmailConfigView(APIView):
         )
         serializer = CheckInEmailConfigSerializer(config, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        
+        # Check if user is trying to set up a private email
+        private_username = serializer.validated_data.get('private_email_username')
+        private_password = serializer.validated_data.get('private_email_password')
+        address_saved = serializer.validated_data.get('private_email_address_saved')
+        
+        # Only try to create in cPanel if both username and password are provided and address is being saved
+        if private_username and private_password and address_saved:
+            # We only allow @mysafemail.xyz domain
+            full_email = f"{private_username}@mysafemail.xyz"
+            
+            from apps.dashboard.cpanel_api import create_cpanel_email
+            success, message = create_cpanel_email(full_email, private_password)
+            
+            if not success:
+                return error_response(message, status.HTTP_400_BAD_REQUEST)
+                
         serializer.save()
         return success_response("Check-in email config updated successfully.", serializer.data, status.HTTP_200_OK)
 
