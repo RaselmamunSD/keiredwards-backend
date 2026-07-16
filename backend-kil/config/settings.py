@@ -126,6 +126,7 @@ MIDDLEWARE = [
     "apps.authentication.middleware.LoginActivityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.PaymentRequiredMiddleware",
     "apps.core.middleware.RequestResponseLoggingMiddleware",
     "apps.core.middleware.CustomSecurityHeadersMiddleware",
     "apps.core.middleware.IPRestrictionMiddleware",

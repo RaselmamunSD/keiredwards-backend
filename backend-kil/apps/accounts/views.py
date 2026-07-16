@@ -89,6 +89,12 @@ class LoginView(APIView):
         user = User.objects.filter(id=user_id).first()
 
         if user:
+            # ── Check if user has completed payment ──
+            has_paid = user.payments.filter(status="completed").exists()
+            if not has_paid:
+                from rest_framework.exceptions import AuthenticationFailed
+                raise AuthenticationFailed("Payment is required before accessing the account.")
+                
             # ── Check if 2FA is enabled for this user ──
             try:
                 from apps.dashboard.models import SetupAccountingConfig

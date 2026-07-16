@@ -41,8 +41,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ("username", "email", "password", "password_confirm", "first_name", "last_name")
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
+        user = User.objects.filter(email=value).first()
+        if user:
+            # Allow re-registration if they haven't paid
+            if not user.payments.filter(status="completed").exists():
+                user.delete()
+            else:
+                raise serializers.ValidationError("A user with this email already exists.")
         return value
 
     def validate(self, attrs):
