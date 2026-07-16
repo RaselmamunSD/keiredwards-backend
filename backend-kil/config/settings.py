@@ -302,6 +302,12 @@ CPANEL_PORT = env.int("CPANEL_PORT", default=2083)
 CPANEL_USERNAME = env("CPANEL_USERNAME", default="")
 CPANEL_PASSWORD = env("CPANEL_PASSWORD", default="")
 
+# PayPal Settings
+PAYPAL_MODE = env("PAYPAL_MODE", default="sandbox")  # sandbox or live
+PAYPAL_CLIENT_ID = env("PAYPAL_CLIENT_ID", default="")
+PAYPAL_SECRET_KEY = env("PAYPAL_SECRET_KEY", default="")
+PAYPAL_WEBHOOK_ID = env("PAYPAL_WEBHOOK_ID", default="")
+
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 
 PAPYL_BASE_URL = env("PAPYL_BASE_URL", default="https://api.papyl.com/v1")

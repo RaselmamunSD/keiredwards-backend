@@ -4,9 +4,9 @@ from rest_framework import permissions, status
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 
-from apps.core.responses import success_response
+from apps.core.responses import success_response, error_response
 
-from .gateway import PapylGatewayClient, PapylGatewayError
+from .gateway import PayPalGatewayClient, PayPalGatewayError
 from .models import Payment, CheckInOption, AddOnOption, SiteSetting
 from .serializers import PaymentCreateSerializer, PaymentSerializer, PaymentVerifySerializer
 
@@ -51,7 +51,7 @@ class PaymentCreateView(APIView):
         transaction_id = f"txn_{uuid.uuid4().hex[:16]}"
         callback_url = f"{request.scheme}://{request.get_host()}/api/v1/payments/verify/"
 
-        gateway_client = PapylGatewayClient()
+        gateway_client = PayPalGatewayClient()
         try:
             gateway_payload = gateway_client.create_payment(
                 amount=validated["amount"],
@@ -59,7 +59,7 @@ class PaymentCreateView(APIView):
                 transaction_id=transaction_id,
                 callback_url=callback_url,
             )
-        except PapylGatewayError as exc:
+        except PayPalGatewayError as exc:
             return success_response(
                 "Payment initiation failed.",
                 {"error": str(exc)},
@@ -97,10 +97,10 @@ class PaymentVerifyView(APIView):
         if not payment:
             return success_response("Payment not found for verification.", {}, status.HTTP_404_NOT_FOUND)
 
-        gateway_client = PapylGatewayClient()
+        gateway_client = PayPalGatewayClient()
         try:
             result = gateway_client.verify_payment(reference)
-        except PapylGatewayError as exc:
+        except PayPalGatewayError as exc:
             return success_response("Payment verification failed.", {"error": str(exc)}, status.HTTP_502_BAD_GATEWAY)
 
         status_map = {
@@ -337,3 +337,74 @@ class PricingConfigView(APIView):
             status.HTTP_200_OK,
         )
 
+
+class PayPalWebhookView(APIView):
+    """
+    Handles incoming PayPal webhooks (e.g., PAYMENT.CAPTURE.COMPLETED).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        headers = request.headers
+        body_json_str = request.body.decode('utf-8')
+        
+        gateway_client = PayPalGatewayClient()
+        
+        # Verify the webhook signature for security
+        is_valid = gateway_client.verify_webhook_signature(headers, body_json_str)
+        if not is_valid:
+            return error_response("Invalid webhook signature", status.HTTP_400_BAD_REQUEST)
+
+        # Process the event
+        event = request.data
+        event_type = event.get("event_type")
+        resource = event.get("resource", {})
+        
+        # Find the original order ID or transaction reference
+        # The exact field depends on PayPal's webhook format. Usually, it's inside resource['id'] 
+        # or resource['supplementary_data']['related_ids']['order_id'].
+        # For simplicity, we assume the resource ID or supplementary order ID gives us the gateway_reference.
+        
+        order_id = resource.get('supplementary_data', {}).get('related_ids', {}).get('order_id')
+        
+        if not order_id:
+            # Try to get it from links if it's an order or capture
+            order_link = next((link['href'] for link in resource.get('links', []) if link['rel'] == 'up'), "")
+            if order_link:
+                order_id = order_link.rstrip('/').split('/')[-1]
+                
+        if not order_id:
+            return success_response("Webhook received but no order ID found. Ignored.", {}, status.HTTP_200_OK)
+            
+        payment = Payment.objects.filter(gateway_reference=order_id).first()
+        if not payment:
+            return success_response("Payment not found for this webhook.", {}, status.HTTP_200_OK)
+
+        if event_type == "PAYMENT.CAPTURE.COMPLETED":
+            old_status = payment.status
+            payment.status = Payment.PaymentStatus.COMPLETED
+            payment.metadata = {**(payment.metadata or {}), "webhook_verification": resource}
+            payment.save(update_fields=["status", "metadata", "updated_at"])
+            
+            # Run storage upgrade logic if applicable
+            if payment.status == Payment.PaymentStatus.COMPLETED and old_status != Payment.PaymentStatus.COMPLETED:
+                metadata = payment.metadata or {}
+                if metadata.get("type") == "storage_upgrade":
+                    gb_val = metadata.get("gb")
+                    if gb_val:
+                        try:
+                            gb_int = int(gb_val)
+                            from apps.dashboard.models import StorageConfig
+                            storage_config, created = StorageConfig.objects.get_or_create(user=payment.user)
+                            storage_config.total_storage_gb = gb_int
+                            storage_config.save()
+                        except Exception as e:
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.error(f"Webhook error upgrading storage for user {payment.user.id}: {e}")
+
+        elif event_type in ["PAYMENT.CAPTURE.DENIED", "PAYMENT.CAPTURE.DECLINED", "PAYMENT.CAPTURE.REFUNDED"]:
+            payment.status = Payment.PaymentStatus.FAILED
+            payment.save(update_fields=["status", "updated_at"])
+
+        return success_response("Webhook processed successfully.", {}, status.HTTP_200_OK)
