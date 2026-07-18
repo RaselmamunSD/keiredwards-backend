@@ -49,7 +49,9 @@ class PaymentCreateView(APIView):
         validated = serializer.validated_data
 
         transaction_id = f"txn_{uuid.uuid4().hex[:16]}"
-        callback_url = f"{request.scheme}://{request.get_host()}/api/v1/payments/verify/"
+        from django.conf import settings as django_settings
+        frontend_url = getattr(django_settings, 'FRONTEND_URL', f"{request.scheme}://{request.get_host()}")
+        callback_url = f"{frontend_url}/payment/success"
 
         gateway_client = PayPalGatewayClient()
         try:
