@@ -137,7 +137,7 @@ data_replacements = [
         r'saveTable\s*=\s*\(key\)\s*=>\s*\{\s*this\.setState\(s\s*=>\s*\(\{\s*tables:\s*\{\s*\.\.\.s\.tables,\s*\[key\]:\s*\{\s*rows:\s*this\.getTable\(s,\s*key\)\.rows,\s*saved:\s*clone\(this\.getTable\(s,\s*key\)\.rows\)\s*\}\s*\}\s*\}\)\);\s*\};',
         r'''saveTable = (key) => {
     const rows = this.getTable(this.state, key).rows;
-    if (['pricing', 'addon', 'press'].includes(key)) {
+    if (['pricing', 'addon', 'press', 'servers', 'privateEmail', 'twoFactor', 'emailSending'].includes(key)) {
         fetch('/admin/data/save/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

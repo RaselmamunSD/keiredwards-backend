@@ -2,11 +2,10 @@ import json
 from datetime import timedelta, date
 from decimal import Decimal
 from django.utils import timezone
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, View
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.auth import logout
 from django.http import JsonResponse
-from django.views import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -197,14 +196,61 @@ def _build_admin_data():
         ]
 
     # ── 9. PRESS ─────────────────────────────────────────────────────────────
-    press = [
-        {"service": "Press Release \u2014 250 Media", "price": "249.00", "active": True},
-    ]
+    press = []
+    for p in PressReleaseTier.objects.all().order_by('tier_index'):
+        press.append({
+            "service": p.label,
+            "price": f"{float(p.price):.2f}",
+            "active": True,
+        })
+    if not press:
+        press = [
+            {"service": "Press Release \u2014 250 Media", "price": "249.00", "active": True},
+        ]
 
     # ── 10. SERVERS ──────────────────────────────────────────────────────────
-    servers = [
-        {"name": "login", "role": "Web", "ip": "216.126.194.123", "url": "iwaskilledforthisinformation.one", "active": True}
-    ]
+    servers = []
+    for s in ServerConfig.objects.all():
+        servers.append({
+            "name": s.name,
+            "role": s.role,
+            "ip": s.ip,
+            "url": s.url,
+            "active": s.is_active,
+        })
+    if not servers:
+        servers = [
+            {"name": "login", "role": "Web", "ip": "216.126.194.123", "url": "iwaskilledforthisinformation.one", "active": True}
+        ]
+        
+    # ── 10.5 PRIVATE EMAIL, TWO FACTOR, EMAIL SENDING ────────────────────────
+    private_email = []
+    for pe in PrivateEmailProvider.objects.all():
+        private_email.append({
+            "address": pe.address,
+            "purpose": pe.purpose,
+            "provider": pe.provider,
+            "active": pe.is_active,
+        })
+        
+    two_factor = []
+    for tf in TwoFactorMethod.objects.all():
+        two_factor.append({
+            "method": tf.method,
+            "provider": tf.provider,
+            "requiredFor": tf.required_for,
+            "active": tf.is_active,
+        })
+        
+    email_sending = []
+    for es in EmailSendingDomain.objects.all():
+        email_sending.append({
+            "email": es.email,
+            "domain": es.domain,
+            "timesUsed": str(es.times_used),
+            "bounceBacks": str(es.bounce_backs),
+            "active": es.is_active,
+        })
 
     # ── 11. ADMIN USERS ───────────────────────────────────────────────────────
     admin_users = []
@@ -343,6 +389,9 @@ def _build_admin_data():
         "addon": addon,
         "press": press,
         "servers": servers,
+        "private_email": private_email,
+        "two_factor": two_factor,
+        "email_sending": email_sending,
         "admin_users": admin_users,
         "dashboard_details": dashboard_details,
     }
@@ -368,12 +417,12 @@ class CustomAdminDashboardView(UserPassesTestMixin, TemplateView):
         context["addon_json"] = json.dumps(data["addon"], default=str)
         context["press_json"] = json.dumps(data["press"], default=str)
         context["outbound_messages_json"] = json.dumps([], default=str)
-        context["servers_json"] = json.dumps(data["servers"], default=str)
-        context["private_email_json"] = json.dumps([], default=str)
-        context["two_factor_json"] = json.dumps([], default=str)
-        context["admin_users_json"] = json.dumps(data["admin_users"], default=str)
-        context["email_sending_json"] = json.dumps([], default=str)
-        context["dashboard_details_json"] = json.dumps(data["dashboard_details"], default=str)
+        context["servers_json"] = json.dumps(data.get("servers", []), default=str)
+        context["private_email_json"] = json.dumps(data.get("private_email", []), default=str)
+        context["two_factor_json"] = json.dumps(data.get("two_factor", []), default=str)
+        context["admin_users_json"] = json.dumps(data.get("admin_users", []), default=str)
+        context["email_sending_json"] = json.dumps(data.get("email_sending", []), default=str)
+        context["dashboard_details_json"] = json.dumps(data.get("dashboard_details", {}), default=str)
         return context
 
 
@@ -395,9 +444,12 @@ class AdminDataApiView(View):
                 "pricing": data["pricing"],
                 "addon": data["addon"],
                 "press": data["press"],
-                "servers": data["servers"],
-                "admin_users": data["admin_users"],
-                "dashboard_details": data["dashboard_details"],
+                "servers": data.get("servers", []),
+                "private_email": data.get("private_email", []),
+                "two_factor": data.get("two_factor", []),
+                "email_sending": data.get("email_sending", []),
+                "admin_users": data.get("admin_users", []),
+                "dashboard_details": data.get("dashboard_details", {}),
                 "timestamp": timezone.now().isoformat(),
             }, safe=False, json_dumps_params={"default": str})
         except Exception as e:
@@ -502,6 +554,60 @@ class AdminSaveDataApiView(View):
                         price=price
                     )
                     tier_idx += 1
+                return JsonResponse({"success": True})
+                
+            elif key == "servers":
+                from apps.dashboard.models import ServerConfig
+                ServerConfig.objects.all().delete()
+                for item in data:
+                    if not item.get("active", True):
+                        continue
+                    ServerConfig.objects.create(
+                        name=item.get("name", ""),
+                        role=item.get("role", ""),
+                        ip=item.get("ip", ""),
+                        url=item.get("url", ""),
+                    )
+                return JsonResponse({"success": True})
+                
+            elif key == "privateEmail":
+                from apps.dashboard.models import PrivateEmailProvider
+                PrivateEmailProvider.objects.all().delete()
+                for item in data:
+                    if not item.get("active", True):
+                        continue
+                    PrivateEmailProvider.objects.create(
+                        address=item.get("address", ""),
+                        purpose=item.get("purpose", ""),
+                        provider=item.get("provider", ""),
+                    )
+                return JsonResponse({"success": True})
+                
+            elif key == "twoFactor":
+                from apps.dashboard.models import TwoFactorMethod
+                TwoFactorMethod.objects.all().delete()
+                for item in data:
+                    if not item.get("active", True):
+                        continue
+                    TwoFactorMethod.objects.create(
+                        method=item.get("method", ""),
+                        provider=item.get("provider", ""),
+                        required_for=item.get("requiredFor", ""),
+                    )
+                return JsonResponse({"success": True})
+                
+            elif key == "emailSending":
+                from apps.dashboard.models import EmailSendingDomain
+                EmailSendingDomain.objects.all().delete()
+                for item in data:
+                    if not item.get("active", True):
+                        continue
+                    EmailSendingDomain.objects.create(
+                        email=item.get("email", ""),
+                        domain=item.get("domain", ""),
+                        times_used=str(item.get("timesUsed", "0")),
+                        bounce_backs=str(item.get("bounceBacks", "0")),
+                    )
                 return JsonResponse({"success": True})
                 
             else:

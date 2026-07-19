@@ -246,3 +246,57 @@ class CheckInMagicLink(models.Model):
 
     def __str__(self):
         return f"{self.user.username} magic link ({self.token[:8]}…)"
+
+
+class ServerConfig(models.Model):
+    name = models.CharField(max_length=150)
+    role = models.CharField(max_length=100, blank=True)
+    ip = models.CharField(max_length=50, blank=True)
+    url = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ("id",)
+
+    def __str__(self):
+        return f"{self.name} - {self.role}"
+
+
+class PrivateEmailProvider(models.Model):
+    address = models.CharField(max_length=255)
+    purpose = models.CharField(max_length=255, blank=True)
+    provider = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ("id",)
+
+    def __str__(self):
+        return self.address
+
+
+class TwoFactorMethod(models.Model):
+    method = models.CharField(max_length=100)
+    provider = models.CharField(max_length=100, blank=True)
+    required_for = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ("id",)
+
+    def __str__(self):
+        return self.method
+
+
+class EmailSendingDomain(models.Model):
+    email = models.CharField(max_length=255)
+    domain = models.CharField(max_length=255, blank=True)
+    times_used = models.CharField(max_length=50, default="0")
+    bounce_backs = models.CharField(max_length=50, default="0")
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ("id",)
+
+    def __str__(self):
+        return self.email
