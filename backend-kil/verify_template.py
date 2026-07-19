@@ -3,34 +3,24 @@ import re
 with open('c:/Rasel/keiredwards/backend-kil/apps/dashboard/templates/dashboard/custom_admin.html', 'r', encoding='utf-8') as f:
     content = f.read()
 
-verbatim_positions = [m.start() for m in re.finditer(r'\{%\s*verbatim\s*%\}', content)]
-endverbatim_positions = [m.start() for m in re.finditer(r'\{%\s*endverbatim\s*%\}', content)]
-print(f"verbatim blocks: {len(verbatim_positions)}")
-print(f"endverbatim blocks: {len(endverbatim_positions)}")
+# Extract dc-script
+dc_start = content.find('<script type="text/x-dc"')
+dc_end = content.find('</script>', dc_start) + len('</script>')
+dc_script = content[dc_start:dc_end]
 
-idx_goD = content.find('goDashboard')
-print(f"\ngoDashboard found at: {idx_goD}")
+# Search for statCards in dc-script
+for pat in ['statCards', 'STAT_CARDS', 'checkinsToday', 'revenueToday', 'genStatCards', 'stat_cards']:
+    matches = [(m.start(), m.group()) for m in re.finditer(pat, dc_script, re.IGNORECASE)]
+    if matches:
+        print(f"\n'{pat}' found {len(matches)} times in dc-script:")
+        for pos, m in matches[:3]:
+            snippet = dc_script[max(0,pos-50):pos+200]
+            print(f"  ---\n  {repr(snippet[:250])}")
 
-found = False
-for i, (vstart, vend) in enumerate(zip(verbatim_positions, endverbatim_positions)):
-    if vstart < idx_goD < vend:
-        print(f"  -> Inside verbatim block #{i+1} ({vstart} to {vend}) OK")
-        found = True
-        break
-if not found:
-    print("  -> NOT inside any verbatim block! BAD")
-
-idx_dd = content.find('dashboard_details_json')
-print(f"\ndashboard_details_json found at: {idx_dd}")
-found2 = False
-for i, (vstart, vend) in enumerate(zip(verbatim_positions, endverbatim_positions)):
-    if vstart < idx_dd < vend:
-        print(f"  -> Inside verbatim block #{i+1} - DJANGO WON'T REPLACE IT! BAD")
-        found2 = True
-        break
-if not found2:
-    print("  -> NOT inside verbatim - Django will process it OK")
-
-print("\nVerbatim block ranges:")
-for i, (vstart, vend) in enumerate(zip(verbatim_positions, endverbatim_positions)):
-    print(f"  Block #{i+1}: {vstart} to {vend} (length: {vend-vstart})")
+# Also look for where the stat card values come from
+print("\n\n=== Searching for 'get statCards' or similar computed properties ===")
+for pat in ['get statCards', 'statCards =', 'statCards:', 'statCards(']:
+    idx = dc_script.find(pat)
+    if idx != -1:
+        print(f"\nFound '{pat}' at {idx}:")
+        print(repr(dc_script[idx:idx+400]))

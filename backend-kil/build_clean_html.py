@@ -97,20 +97,32 @@ for uuid, asset in decoded_assets.items():
 
 
 # ── Replace data variable declarations with Django template vars ──────────────
+# NOTE: The dc-script uses camelCase (statCards, expiryCards) not UPPER_CASE.
+# We replace both the old-style array/object declarations AND the inline function bodies.
 data_replacements = [
+    # Users list (function that generates users)
     (r'const USERS\s*=\s*\[.*?\];', 'const USERS = {{ users_json|safe }};'),
+    # Accounting orders
     (r'const ACCOUNTING_ORDERS\s*=\s*\[.*?\];', 'const ACCOUNTING_ORDERS = {{ accounting_orders_json|safe }};'),
+    # Stat cards (camelCase in dc-script: "const statCards = [...]")
+    (r'const statCards\s*=\s*\[.*?\];', 'const statCards = {{ stat_cards_json|safe }};'),
+    # Expiry cards (camelCase: "const expiryCards = [...]")
+    (r'const expiryCards\s*=\s*\[.*?\];', 'const expiryCards = {{ expiry_cards_json|safe }};'),
+    # UPPER_CASE fallbacks (in case they exist)
     (r'const STAT_CARDS\s*=\s*\[.*?\];', 'const STAT_CARDS = {{ stat_cards_json|safe }};'),
     (r'const EXPIRY_CARDS\s*=\s*\[.*?\];', 'const EXPIRY_CARDS = {{ expiry_cards_json|safe }};'),
+    # Pricing, Add-ons, Press
     (r'const PRICING\s*=\s*\[.*?\];', 'const PRICING = {{ pricing_json|safe }};'),
     (r'const ADDON\s*=\s*\[.*?\];', 'const ADDON = {{ addon_json|safe }};'),
     (r'const PRESS\s*=\s*\[.*?\];', 'const PRESS = {{ press_json|safe }};'),
+    # Messages, servers, email, 2fa, admin users
     (r'const OUTBOUND_MESSAGES\s*=\s*\[.*?\];', 'const OUTBOUND_MESSAGES = {{ outbound_messages_json|safe }};'),
     (r'const SERVERS\s*=\s*\[.*?\];', 'const SERVERS = {{ servers_json|safe }};'),
     (r'const PRIVATE_EMAIL\s*=\s*\[.*?\];', 'const PRIVATE_EMAIL = {{ private_email_json|safe }};'),
     (r'const TWO_FACTOR\s*=\s*\[.*?\];', 'const TWO_FACTOR = {{ two_factor_json|safe }};'),
     (r'const ADMIN_USERS\s*=\s*\[.*?\];', 'const ADMIN_USERS = {{ admin_users_json|safe }};'),
     (r'const EMAIL_SENDING\s*=\s*\[.*?\];', 'const EMAIL_SENDING = {{ email_sending_json|safe }};'),
+    # Dashboard details (object not array)
     (r'const DASHBOARD_DETAILS\s*=\s*\{.*?\};', 'const DASHBOARD_DETAILS = {{ dashboard_details_json|safe }};'),
 ]
 

@@ -2056,22 +2056,8 @@ class Component extends DCLogic {
     users = users.map(u => ({ ...u, onOpen: (e) => { e.preventDefault(); this.openUser(u); } }));
     const frequencyOptions = ['All', ...FREQS];
     const statusOptions = ['All', 'Active', 'Grace Period', 'Paused', 'Expired'];
-    const statCards = [
-      { label: 'Check-ins today', value: 42, trend: '+6 vs. yesterday', key: 'checkinsToday' },
-      { label: 'Missed check-ins yesterday', value: 3, trend: '2 in grace period', key: 'missedCheckins' },
-      { label: 'New clients today', value: 7, trend: '+2 vs. yesterday', key: 'newClients' },
-      { label: 'Revenue today', value: '$1,240', trend: '+8.1%', key: 'revenueToday' },
-      { label: 'Revenue this week', value: '$8,960', trend: '+4.4%', key: 'revenueWeek' },
-      { label: 'Revenue this month', value: '$34,510', trend: '+11.2%', key: 'revenueMonth' },
-    ];
-    const expiryCards = [
-      { label: 'Expires in 90 Days', value: 18, trend: 'renewal window opens', key: 'expires90' },
-      { label: 'Expires in 60 Days', value: 12, trend: '', key: 'expires60' },
-      { label: 'Expires in 30 Days', value: 9, trend: 'send reminder', key: 'expires30' },
-      { label: 'Expires in 15 Days', value: 5, trend: 'send reminder', key: 'expires15' },
-      { label: 'Expires in 5 Days', value: 2, trend: 'urgent', key: 'expires5' },
-      { label: 'Expires in 1 Days', value: 1, trend: 'urgent', key: 'expires1' },
-    ];
+    const statCards = {{ stat_cards_json|safe }};
+    const expiryCards = {{ expiry_cards_json|safe }};
 
     return {
       accentColor: this.props.accentColor || '#0088b0',
