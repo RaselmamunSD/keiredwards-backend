@@ -404,6 +404,115 @@ class AdminDataApiView(View):
             return JsonResponse({"error": str(e)}, status=500)
 
 
+import re
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminSaveDataApiView(View):
+    """
+    Handles saving data from the admin dashboard (Pricing, Add-ons, Press).
+    """
+    def post(self, request, *args, **kwargs):
+        if not (request.user.is_authenticated and request.user.is_staff):
+            return JsonResponse({"error": "Unauthorized"}, status=401)
+            
+        try:
+            payload = json.loads(request.body)
+            key = payload.get("key")
+            data = payload.get("data", [])
+            
+            if key == "pricing":
+                from apps.payments.models import CheckInOption
+                CheckInOption.objects.all().delete()
+                for item in data:
+                    # Ignore if toggled off
+                    if not item.get("active", True):
+                        continue
+                        
+                    label = item.get("service", "Unknown Plan")
+                    slug_key = re.sub(r'[^a-z0-9]+', '_', label.lower()).strip('_')
+                    if not slug_key: slug_key = "plan"
+                    
+                    try: y1 = float(item.get("y1", 0) or 0)
+                    except: y1 = 0
+                    try: y2 = float(item.get("y2", 0) or 0)
+                    except: y2 = 0
+                    try: y3 = float(item.get("y3", 0) or 0)
+                    except: y3 = 0
+                    
+                    price_per_month = y1 / 12 if y1 else 0
+                    
+                    display_label = label.split("\u2014")[-1].strip() if "\u2014" in label else label
+                    
+                    CheckInOption.objects.create(
+                        key=slug_key,
+                        label=label,
+                        display_label=display_label,
+                        price_per_month=price_per_month,
+                        price_1_year=y1,
+                        price_2_years=y2,
+                        price_3_years=y3
+                    )
+                return JsonResponse({"success": True})
+                
+            elif key == "addon":
+                from apps.payments.models import AddOnOption
+                AddOnOption.objects.all().delete()
+                for item in data:
+                    if not item.get("active", True):
+                        continue
+                        
+                    label = item.get("service", "Unknown Addon")
+                    slug_key = re.sub(r'[^a-z0-9]+', '_', label.lower()).strip('_')
+                    if not slug_key: slug_key = "addon"
+                    
+                    try: price = float(item.get("yearly", 0) or 0)
+                    except: price = 0
+                    
+                    AddOnOption.objects.create(
+                        key=slug_key,
+                        label=label,
+                        price=price
+                    )
+                return JsonResponse({"success": True})
+                
+            elif key == "press":
+                from apps.dashboard.models import PressReleaseTier
+                PressReleaseTier.objects.all().delete()
+                tier_idx = 0
+                for item in data:
+                    if not item.get("active", True):
+                        continue
+                        
+                    label = item.get("service", "Press Release")
+                    try: price = float(item.get("price", 0) or 0)
+                    except: price = 0
+                    
+                    # Try to extract count from label like "Press Release — 250 Media"
+                    count = "100"
+                    m = re.search(r'(\d+)', label)
+                    if m:
+                        count = m.group(1)
+                        
+                    PressReleaseTier.objects.create(
+                        tier_index=tier_idx,
+                        count=count,
+                        label=label,
+                        price=price
+                    )
+                    tier_idx += 1
+                return JsonResponse({"success": True})
+                
+            else:
+                return JsonResponse({"error": "Unknown key"}, status=400)
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({"error": str(e)}, status=500)
+
+
 class AdminLogoutView(View):
     """Logs out the admin user and redirects to login."""
     def post(self, request, *args, **kwargs):

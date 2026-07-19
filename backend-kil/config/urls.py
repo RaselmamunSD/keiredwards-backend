@@ -29,13 +29,14 @@ def api_v1_root(_request):
         }
     )
 
-from apps.dashboard.admin_views import CustomAdminDashboardView, AdminDataApiView, AdminLogoutView
+from apps.dashboard.admin_views import CustomAdminDashboardView, AdminDataApiView, AdminLogoutView, AdminSaveDataApiView
 
 urlpatterns = [
     path("", api_root, name="api-root"),
     path("api/v1/", api_v1_root, name="api-v1-root"),
     path("admin/", CustomAdminDashboardView.as_view(), name="custom-admin"),
     path("admin/data/", AdminDataApiView.as_view(), name="admin-data-api"),
+    path("admin/data/save/", AdminSaveDataApiView.as_view(), name="admin-save-data-api"),
     path("admin/logout/", AdminLogoutView.as_view(), name="admin-logout"),
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

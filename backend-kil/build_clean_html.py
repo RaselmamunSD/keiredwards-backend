@@ -131,6 +131,29 @@ data_replacements = [
     (r'const EMAIL_SENDING\s*=\s*\[.*?\];', 'const EMAIL_SENDING = {{ email_sending_json|safe }};'),
     # Dashboard details (object not array)
     (r'const DASHBOARD_DETAILS\s*=\s*\{.*?\};', 'const DASHBOARD_DETAILS = {{ dashboard_details_json|safe }};'),
+    
+    # ── saveTable() function — intercepts saving to send API requests ─────────
+    (
+        r'saveTable\s*=\s*\(key\)\s*=>\s*\{\s*this\.setState\(s\s*=>\s*\(\{\s*tables:\s*\{\s*\.\.\.s\.tables,\s*\[key\]:\s*\{\s*rows:\s*this\.getTable\(s,\s*key\)\.rows,\s*saved:\s*clone\(this\.getTable\(s,\s*key\)\.rows\)\s*\}\s*\}\s*\}\)\);\s*\};',
+        r'''saveTable = (key) => {
+    const rows = this.getTable(this.state, key).rows;
+    if (['pricing', 'addon', 'press'].includes(key)) {
+        fetch('/admin/data/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: key, data: rows })
+        }).then(res => {
+            if(res.ok) {
+                this.setState(s => ({ tables: { ...s.tables, [key]: { rows: this.getTable(s, key).rows, saved: clone(this.getTable(s, key).rows) } } }));
+            } else {
+                alert('Failed to save ' + key);
+            }
+        }).catch(err => alert('Network error: ' + err));
+    } else {
+        this.setState(s => ({ tables: { ...s.tables, [key]: { rows: this.getTable(s, key).rows, saved: clone(this.getTable(s, key).rows) } } }));
+    }
+  };'''
+    ),
 ]
 
 replaced_count = 0

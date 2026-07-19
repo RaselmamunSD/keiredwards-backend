@@ -1664,7 +1664,22 @@ class Component extends DCLogic {
     });
   };
   saveTable = (key) => {
-    this.setState(s => ({ tables: { ...s.tables, [key]: { rows: this.getTable(s, key).rows, saved: clone(this.getTable(s, key).rows) } } }));
+    const rows = this.getTable(this.state, key).rows;
+    if (['pricing', 'addon', 'press'].includes(key)) {
+        fetch('/admin/data/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: key, data: rows })
+        }).then(res => {
+            if(res.ok) {
+                this.setState(s => ({ tables: { ...s.tables, [key]: { rows: this.getTable(s, key).rows, saved: clone(this.getTable(s, key).rows) } } }));
+            } else {
+                alert('Failed to save ' + key);
+            }
+        }).catch(err => alert('Network error: ' + err));
+    } else {
+        this.setState(s => ({ tables: { ...s.tables, [key]: { rows: this.getTable(s, key).rows, saved: clone(this.getTable(s, key).rows) } } }));
+    }
   };
   cancelTable = (key) => {
     this.setState(s => ({ tables: { ...s.tables, [key]: { rows: clone(this.getTable(s, key).saved), saved: this.getTable(s, key).saved } } }));
