@@ -670,7 +670,16 @@ class AdminSaveDataApiView(View):
                 # For any existing staff user not in the payload, remove their staff status
                 # (effectively deleting their admin access, as they were "removed" in UI)
                 for u in User.objects.filter(is_staff=True):
-                    if u.email.lower() not in submitted_emails:
+                    # Prevent demoting the currently logged-in user
+                    if u == request.user:
+                        continue
+                        
+                    # Also, if a user has no email, they can't be matched by the frontend UI, 
+                    # so avoid demoting superusers without an email.
+                    if not u.email and u.is_superuser:
+                        continue
+                        
+                    if u.email and u.email.lower() not in submitted_emails:
                         u.is_staff = False
                         u.save()
                 return JsonResponse({"success": True})
