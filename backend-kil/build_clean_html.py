@@ -158,7 +158,7 @@ final_html = f'''<!DOCTYPE html>
 {{% endverbatim %}}
 </script>
 
-<!-- ── Real-time data polling + Logout ─────────────────────────────── -->
+<!-- ── Real-time data polling + Logout (Fixed UI) ─────────────────── -->
 <script>
 (function() {{
   var POLL_INTERVAL = 30000; // 30 seconds
@@ -176,69 +176,132 @@ final_html = f'''<!DOCTYPE html>
     }});
   }}
 
-  // ── Inject logout button into the sidebar ────────────────────────
-  function injectLogoutBtn() {{
-    var sidebar = document.querySelector('[data-sidebar], .sidebar, nav, [class*="sidebar"], [class*="nav-"]');
-    // Try to find the admin name element first, then the sidebar
-    var nameEls = document.querySelectorAll('*');
-    var targetEl = null;
-    for (var i = 0; i < nameEls.length; i++) {{
-      var el = nameEls[i];
-      var txt = el.textContent ? el.textContent.trim() : '';
-      if (txt === 'iwasKilled' || txt === 'Admin' || txt === 'admin') {{
-        targetEl = el.parentElement || el;
-        break;
+  // ── Find the sidebar element ──────────────────────────────────────
+  function getSidebar() {{
+    // The DCLogic sidebar is usually the first child of body or a fixed/flex left panel
+    var all = document.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {{
+      var el = all[i];
+      var style = window.getComputedStyle(el);
+      var rect = el.getBoundingClientRect();
+      // Sidebar: narrow (< 200px wide), taller than 300px, fixed or absolute left
+      if (rect.width > 80 && rect.width < 200 && rect.height > 300 && rect.left < 20) {{
+        return el;
       }}
     }}
+    return null;
+  }}
 
-    // Create logout button
-    var btn = document.getElementById('admin-logout-btn');
-    if (!btn) {{
-      btn = document.createElement('div');
-      btn.id = 'admin-logout-btn';
-      btn.textContent = 'Logout';
-      btn.title = 'Sign out of admin panel';
-      btn.style.cssText = [
-        'cursor:pointer',
-        'color:#c0392b',
-        'font-size:13px',
-        'font-weight:600',
-        'padding:8px 14px',
-        'margin-top:auto',
-        'border-top:1px solid rgba(255,255,255,0.1)',
-        'letter-spacing:0.04em',
-        'display:flex',
-        'align-items:center',
-        'gap:6px',
-        'transition:background 0.2s',
-        'border-radius:4px'
-      ].join(';');
-      btn.onmouseenter = function() {{ this.style.background = 'rgba(192,57,43,0.15)'; }};
-      btn.onmouseleave = function() {{ this.style.background = 'transparent'; }};
-      btn.onclick = function(e) {{
-        e.preventDefault();
-        e.stopPropagation();
-        if (confirm('Are you sure you want to logout?')) doLogout();
-      }};
-      // Prepend "→ " icon
-      var icon = document.createElement('span');
-      icon.innerHTML = '&#x2192;';
-      icon.style.cssText = 'font-size:14px;opacity:0.8;';
-      btn.insertBefore(icon, btn.firstChild);
-
-      // Find the sidebar and append
-      var sidebarEl = document.querySelector('[class*="sidebar"]') ||
-                      document.querySelector('aside') ||
-                      document.querySelector('nav');
-      if (sidebarEl) {{
-        sidebarEl.appendChild(btn);
-      }} else if (targetEl) {{
-        targetEl.parentElement && targetEl.parentElement.appendChild(btn);
-      }} else {{
-        // Fallback: fixed position bottom-left
-        btn.style.cssText += ';position:fixed;bottom:20px;left:10px;z-index:9999;background:rgba(255,255,255,0.95);box-shadow:0 2px 8px rgba(0,0,0,0.15);border-radius:8px;';
-        document.body.appendChild(btn);
+  // ── Find admin avatar / user-info element at bottom of sidebar ────
+  function getAdminAvatarEl(sidebar) {{
+    if (!sidebar) return null;
+    var children = sidebar.querySelectorAll('*');
+    for (var i = children.length - 1; i >= 0; i--) {{
+      var el = children[i];
+      var txt = el.textContent ? el.textContent.trim() : '';
+      // Find the bottom user info: has an img or has text with @ (email)
+      var hasEmail = txt.indexOf('@') !== -1;
+      var hasImg = el.querySelector('img') !== null;
+      var isSmall = el.getBoundingClientRect().height < 80;
+      if ((hasEmail || hasImg) && isSmall) {{
+        return el;
       }}
+    }}
+    return null;
+  }}
+
+  // ── Inject logout button ABOVE the admin avatar ───────────────────
+  function injectLogoutBtn() {{
+    if (document.getElementById('admin-logout-btn')) return;
+
+    var btn = document.createElement('div');
+    btn.id = 'admin-logout-btn';
+    btn.innerHTML = '<span style="font-size:15px;margin-right:6px;">&#x2192;</span> Logout';
+    btn.title = 'Sign out of admin panel (Ctrl+Shift+L)';
+    btn.style.cssText = [
+      'cursor:pointer',
+      'color:#c0392b',
+      'font-size:12px',
+      'font-weight:700',
+      'padding:7px 14px',
+      'letter-spacing:0.05em',
+      'display:flex',
+      'align-items:center',
+      'width:100%',
+      'box-sizing:border-box',
+      'transition:background 0.18s',
+      'border-radius:0',
+      'user-select:none',
+      'border-top:1px solid rgba(0,0,0,0.08)'
+    ].join(';');
+    btn.onmouseenter = function() {{ this.style.background = 'rgba(192,57,43,0.1)'; }};
+    btn.onmouseleave = function() {{ this.style.background = 'transparent'; }};
+    btn.onclick = function(e) {{
+      e.preventDefault(); e.stopPropagation();
+      if (confirm('Are you sure you want to logout?')) doLogout();
+    }};
+
+    // Try to insert BEFORE the avatar element
+    var sidebar = getSidebar();
+    var avatarEl = getAdminAvatarEl(sidebar);
+    if (avatarEl && avatarEl.parentElement) {{
+      avatarEl.parentElement.insertBefore(btn, avatarEl);
+    }} else if (sidebar) {{
+      sidebar.appendChild(btn);
+    }} else {{
+      // Last resort: fixed bottom-left above avatar area
+      btn.style.cssText += ';position:fixed;bottom:70px;left:0;right:0;width:130px;z-index:9999;background:rgba(255,255,255,0.97);box-shadow:0 -1px 6px rgba(0,0,0,0.1);';
+      document.body.appendChild(btn);
+    }}
+  }}
+
+  // ── Inject live badge INSIDE the sidebar (top area) ───────────────
+  function injectLiveBadge() {{
+    if (document.getElementById('admin-live-badge')) return;
+    var badge = document.createElement('div');
+    badge.id = 'admin-live-badge';
+    badge.textContent = '\u25cf Live';
+    // Place it inside the sidebar top, below the logo
+    var sidebar = getSidebar();
+    if (sidebar) {{
+      badge.style.cssText = [
+        'display:block',
+        'font-size:10px',
+        'font-weight:700',
+        'color:#27ae60',
+        'background:rgba(39,174,96,0.1)',
+        'border:1px solid rgba(39,174,96,0.25)',
+        'border-radius:12px',
+        'padding:2px 8px',
+        'margin:4px 12px 8px 12px',
+        'letter-spacing:0.06em',
+        'width:fit-content',
+        'pointer-events:none'
+      ].join(';');
+      // Insert after the logo (first child)
+      var firstChild = sidebar.firstElementChild;
+      if (firstChild && firstChild.nextSibling) {{
+        sidebar.insertBefore(badge, firstChild.nextSibling);
+      }} else {{
+        sidebar.insertBefore(badge, sidebar.firstChild);
+      }}
+    }} else {{
+      // Fallback: bottom-right, far from browser chrome
+      badge.style.cssText = [
+        'position:fixed',
+        'bottom:16px',
+        'right:16px',
+        'z-index:9999',
+        'font-size:10px',
+        'font-weight:700',
+        'color:#27ae60',
+        'background:rgba(39,174,96,0.12)',
+        'border:1px solid rgba(39,174,96,0.3)',
+        'border-radius:20px',
+        'padding:3px 10px',
+        'pointer-events:none'
+      ].join(';');
+      document.body.appendChild(badge);
     }}
   }}
 
@@ -250,59 +313,19 @@ final_html = f'''<!DOCTYPE html>
       headers: {{ 'Accept': 'application/json' }}
     }})
     .then(function(r) {{
-      if (r.status === 401) {{
-        clearInterval(_pollTimer);
-        return null;
-      }}
+      if (r.status === 401) {{ clearInterval(_pollTimer); return null; }}
       return r.json();
     }})
     .then(function(data) {{
       if (!data) return;
-      // Find the DCLogic component instance and update its state
       try {{
-        var rootEl = document.querySelector('x-dc');
-        if (rootEl && rootEl._dcInstance) {{
-          rootEl._dcInstance.setState(function(prev) {{
-            return {{
-              _liveData: data,
-              _lastUpdated: data.timestamp
-            }};
-          }});
-        }}
-        // Update page title with last-updated time
         var d = new Date(data.timestamp);
         var timeStr = d.toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit'}});
         var badge = document.getElementById('admin-live-badge');
-        if (badge) badge.textContent = 'Live \u2022 ' + timeStr;
-      }} catch(e) {{
-        // DCLogic instance not accessible — data will refresh on next page load
-      }}
+        if (badge) badge.textContent = '\u25cf Live \u2022 ' + timeStr;
+      }} catch(e) {{}}
     }})
     .catch(function() {{}});
-  }}
-
-  // ── Inject live badge ─────────────────────────────────────────────
-  function injectLiveBadge() {{
-    if (document.getElementById('admin-live-badge')) return;
-    var badge = document.createElement('div');
-    badge.id = 'admin-live-badge';
-    badge.textContent = 'Live';
-    badge.style.cssText = [
-      'position:fixed',
-      'top:10px',
-      'right:14px',
-      'z-index:99999',
-      'font-size:11px',
-      'font-weight:700',
-      'color:#27ae60',
-      'background:rgba(39,174,96,0.12)',
-      'border:1px solid rgba(39,174,96,0.3)',
-      'border-radius:20px',
-      'padding:3px 10px',
-      'letter-spacing:0.05em',
-      'pointer-events:none'
-    ].join(';');
-    document.body.appendChild(badge);
   }}
 
   // ── Keyboard shortcut: Ctrl+Shift+L = Logout ──────────────────────
@@ -310,13 +333,11 @@ final_html = f'''<!DOCTYPE html>
     if (e.ctrlKey && e.shiftKey && e.key === 'L') doLogout();
   }});
 
-  // ── Init on DOMContentLoaded ──────────────────────────────────────
+  // ── Init ─────────────────────────────────────────────────────────
   function init() {{
     injectLogoutBtn();
     injectLiveBadge();
-    // Start polling every 30 seconds
     _pollTimer = setInterval(refreshData, POLL_INTERVAL);
-    // Also refresh when the tab becomes visible again
     document.addEventListener('visibilitychange', function() {{
       if (!document.hidden) refreshData();
     }});
@@ -325,8 +346,7 @@ final_html = f'''<!DOCTYPE html>
   if (document.readyState === 'loading') {{
     document.addEventListener('DOMContentLoaded', init);
   }} else {{
-    // Wait a tick for DCLogic to mount
-    setTimeout(init, 800);
+    setTimeout(init, 1000);
   }}
 }})();
 </script>
