@@ -271,7 +271,18 @@ def _build_admin_data():
         
     # ── 11.5 PERMISSIONS ──────────────────────────────────────────────────────
     global_perm = GlobalPermission.objects.first()
-    permissions = global_perm.permissions_json if global_perm and global_perm.permissions_json else {}
+    default_permissions = {
+        "Dashboard": { "Super Admin": True, "Admin": True, "Support": True },
+        "Users": { "Super Admin": True, "Admin": True, "Support": True },
+        "Accounting": { "Super Admin": True, "Admin": True, "Support": False },
+        "Pricing": { "Super Admin": True, "Admin": True, "Support": False },
+        "Outbound Messages": { "Super Admin": True, "Admin": True, "Support": True },
+        "Email Templates for Clients": { "Super Admin": True, "Admin": True, "Support": False },
+        "Press Release": { "Super Admin": True, "Admin": True, "Support": False },
+        "Technical": { "Super Admin": True, "Admin": False, "Support": False },
+        "Admin Users": { "Super Admin": True, "Admin": False, "Support": False }
+    }
+    permissions = global_perm.permissions_json if global_perm and global_perm.permissions_json else default_permissions
 
     # ── 12. DASHBOARD DETAILS (drill-down tables) ─────────────────────────────
     # Checkins today detail
