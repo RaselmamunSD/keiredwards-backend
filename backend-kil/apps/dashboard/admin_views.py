@@ -206,7 +206,7 @@ def _build_admin_data():
     for p in PressReleaseTier.objects.all().order_by('tier_index'):
         press.append({
             "service": p.label,
-            "price": f"{float(p.price):.2f}",
+            "price": f"{float(p.price):.2f}" if p.price is not None else "0.00",
             "active": True,
         })
     if not press:
