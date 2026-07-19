@@ -360,6 +360,7 @@ class CustomAdminDashboardView(UserPassesTestMixin, TemplateView):
         data = _build_admin_data()
 
         context["users_json"] = json.dumps(data["users"], default=str)
+        context["names_json"] = "[]"
         context["accounting_orders_json"] = json.dumps(data["orders"], default=str)
         context["stat_cards_json"] = json.dumps(data["stat_cards"], default=str)
         context["expiry_cards_json"] = json.dumps(data["expiry_cards"], default=str)

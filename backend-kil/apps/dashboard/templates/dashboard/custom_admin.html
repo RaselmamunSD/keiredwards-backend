@@ -1443,25 +1443,9 @@ const revenueDetail = (label) => ({
 });
 
 const DASHBOARD_DETAILS = {{ dashboard_details_json|safe }};
-const NAMES = ['j.harmon','r.mamun','cindy.l','acd040','info.desk','t.alvarez','k.nakamura','s.patel','m.oduya','b.fischer','l.chen','d.osei','v.rossi','h.kowalski','n.ibrahim'];
+const NAMES = {{ names_json|safe }};
 const STATUS_TAG = { Active: 'tag tag-accent', 'Grace Period': 'tag tag-accent-2', Paused: 'tag tag-neutral', Expired: 'tag tag-outline' };
-function genUsers() {
-  const statuses = ['Active', 'Grace Period', 'Paused', 'Expired'];
-  const rows = [];
-  for (let i = 0; i < 15; i++) {
-    const st = statuses[i % statuses.length];
-    rows.push({
-      email: NAMES[i] + '@example.com',
-      frequency: FREQS[i % FREQS.length],
-      next: st === 'Expired' ? '—' : `0${(i % 9) + 1}/${10 + (i % 18)}/2026`,
-      status: st,
-      tagClass: STATUS_TAG[st],
-      expiration: `${String(1 + (i % 12)).padStart(2,'0')}/${String((i % 27) + 1).padStart(2,'0')}/2027`,
-      checkins: (i * 17 + 3) % 320,
-    });
-  }
-  return rows;
-}
+function genUsers() { return {{ users_json|safe }}; }
 function clone(a) { return JSON.parse(JSON.stringify(a)); }
 
 class Component extends DCLogic {

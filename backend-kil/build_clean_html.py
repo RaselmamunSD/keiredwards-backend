@@ -100,8 +100,15 @@ for uuid, asset in decoded_assets.items():
 # NOTE: The dc-script uses camelCase (statCards, expiryCards) not UPPER_CASE.
 # We replace both the old-style array/object declarations AND the inline function bodies.
 data_replacements = [
-    # Users list (function that generates users)
-    (r'const USERS\s*=\s*\[.*?\];', 'const USERS = {{ users_json|safe }};'),
+    # ── genUsers() function — replaces the entire fake user generator ─────────
+    # The dc-script has: function genUsers() { ... fake users with @example.com ... }
+    # We replace it with a function that returns real users from Django context.
+    (
+        r'function genUsers\(\)\s*\{.*?\}(?=\s*\nfunction clone)',
+        r'function genUsers() { return {{ users_json|safe }}; }'
+    ),
+    # NAMES array
+    (r'const NAMES\s*=\s*\[.*?\];', 'const NAMES = {{ names_json|safe }};'),
     # Accounting orders
     (r'const ACCOUNTING_ORDERS\s*=\s*\[.*?\];', 'const ACCOUNTING_ORDERS = {{ accounting_orders_json|safe }};'),
     # Stat cards (camelCase in dc-script: "const statCards = [...]")
