@@ -1419,17 +1419,7 @@ const PRIVATE_EMAIL = {{ private_email_json|safe }};
 const TWO_FACTOR = {{ two_factor_json|safe }};
 const ADMIN_ROLES = ['Super Admin', 'Admin', 'Support'];
 const PERMISSION_AREAS = ['Dashboard', 'Users', 'Accounting', 'Pricing', 'Outbound Messages', 'Email Templates for Clients', 'Press Release', 'Technical', 'Admin Users'];
-const DEFAULT_PERMISSIONS = {
-  Dashboard: { 'Super Admin': true, Admin: true, Support: true },
-  Users: { 'Super Admin': true, Admin: true, Support: true },
-  Accounting: { 'Super Admin': true, Admin: true, Support: false },
-  Pricing: { 'Super Admin': true, Admin: true, Support: false },
-  'Outbound Messages': { 'Super Admin': true, Admin: true, Support: true },
-  'Email Templates for Clients': { 'Super Admin': true, Admin: true, Support: false },
-  'Press Release': { 'Super Admin': true, Admin: true, Support: false },
-  Technical: { 'Super Admin': true, Admin: false, Support: false },
-  'Admin Users': { 'Super Admin': true, Admin: false, Support: false },
-};
+const DEFAULT_PERMISSIONS = {{ permissions_json|safe }};
 const ADMIN_USERS = {{ admin_users_json|safe }};
 const EMAIL_SENDING = {{ email_sending_json|safe }};
 const fmtMoney = (n) => `$${n.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}`;
@@ -1665,7 +1655,7 @@ class Component extends DCLogic {
   };
   saveTable = (key) => {
     const rows = this.getTable(this.state, key).rows;
-    if (['pricing', 'addon', 'press', 'servers', 'privateEmail', 'twoFactor', 'emailSending'].includes(key)) {
+    if (['pricing', 'addon', 'press', 'servers', 'privateEmail', 'twoFactor', 'emailSending', 'adminUsers'].includes(key)) {
         fetch('/admin/data/save/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1830,7 +1820,19 @@ class Component extends DCLogic {
       permissions: { ...s.permissions, [area]: { ...s.permissions[area], [role]: !s.permissions[area][role] } },
     }));
   };
-  savePermissions = () => this.setState(s => ({ permissionsSaved: clone(s.permissions) }));
+  savePermissions = () => {
+    fetch('/admin/data/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'permissions', data: this.state.permissions })
+    }).then(res => {
+        if(res.ok) {
+            this.setState(s => ({ permissionsSaved: clone(s.permissions) }));
+        } else {
+            alert('Failed to save permissions');
+        }
+    }).catch(err => alert('Network error: ' + err));
+  };
   cancelPermissions = () => this.setState(s => ({ permissions: clone(s.permissionsSaved) }));
   isPermissionsDirty = () => JSON.stringify(this.state.permissions) !== JSON.stringify(this.state.permissionsSaved);
 

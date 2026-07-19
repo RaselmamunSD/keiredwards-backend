@@ -9,6 +9,7 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     bio = models.TextField(blank=True)
     is_verified = models.BooleanField(default=False)
+    admin_role = models.CharField(max_length=50, blank=True)
 
     class Meta:
         ordering = ("-date_joined",)

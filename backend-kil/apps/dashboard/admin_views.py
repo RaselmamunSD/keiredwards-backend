@@ -16,10 +16,16 @@ from apps.dashboard.models import (
     CheckInScheduleConfig,
     ActiveService,
     PressReleaseConfig,
+    PressReleaseTier,
     CheckInEmailConfig,
     TrustedRecipient,
     BillingRecord,
     SetupAccountingConfig,
+    ServerConfig,
+    PrivateEmailProvider,
+    TwoFactorMethod,
+    EmailSendingDomain,
+    GlobalPermission,
 )
 
 
@@ -258,10 +264,14 @@ def _build_admin_data():
         admin_users.append({
             "name": u.get_full_name() or u.username or u.email.split('@')[0],
             "email": u.email,
-            "role": "Super Admin" if u.is_superuser else "Admin",
+            "role": u.admin_role or ("Super Admin" if u.is_superuser else "Admin"),
             "lastLogin": u.last_login.strftime("%m/%d/%Y %H:%M") if u.last_login else "Never",
             "active": u.is_active,
         })
+        
+    # ── 11.5 PERMISSIONS ──────────────────────────────────────────────────────
+    global_perm = GlobalPermission.objects.first()
+    permissions = global_perm.permissions_json if global_perm and global_perm.permissions_json else {}
 
     # ── 12. DASHBOARD DETAILS (drill-down tables) ─────────────────────────────
     # Checkins today detail
@@ -393,6 +403,7 @@ def _build_admin_data():
         "two_factor": two_factor,
         "email_sending": email_sending,
         "admin_users": admin_users,
+        "permissions": permissions,
         "dashboard_details": dashboard_details,
     }
 
@@ -421,6 +432,7 @@ class CustomAdminDashboardView(UserPassesTestMixin, TemplateView):
         context["private_email_json"] = json.dumps(data.get("private_email", []), default=str)
         context["two_factor_json"] = json.dumps(data.get("two_factor", []), default=str)
         context["admin_users_json"] = json.dumps(data.get("admin_users", []), default=str)
+        context["permissions_json"] = json.dumps(data.get("permissions", {}), default=str)
         context["email_sending_json"] = json.dumps(data.get("email_sending", []), default=str)
         context["dashboard_details_json"] = json.dumps(data.get("dashboard_details", {}), default=str)
         return context
@@ -608,6 +620,58 @@ class AdminSaveDataApiView(View):
                         times_used=str(item.get("timesUsed", "0")),
                         bounce_backs=str(item.get("bounceBacks", "0")),
                     )
+                return JsonResponse({"success": True})
+                
+            elif key == "adminUsers":
+                from django.contrib.auth.hashers import make_password
+                submitted_emails = []
+                for item in data:
+                    email = item.get("email", "").strip().lower()
+                    if not email:
+                        continue
+                    submitted_emails.append(email)
+                    
+                    role = item.get("role", "Admin")
+                    is_active = item.get("active", True)
+                    name = item.get("name", "")
+                    
+                    user = User.objects.filter(email=email).first()
+                    if user:
+                        user.admin_role = role
+                        user.is_superuser = (role == "Super Admin")
+                        user.is_staff = True
+                        user.is_active = is_active
+                        if name:
+                            user.first_name = name
+                        user.save()
+                    else:
+                        User.objects.create(
+                            username=email,
+                            email=email,
+                            admin_role=role,
+                            is_superuser=(role == "Super Admin"),
+                            is_staff=True,
+                            is_active=is_active,
+                            first_name=name,
+                            password=make_password("TempPass123!")
+                        )
+                
+                # For any existing staff user not in the payload, remove their staff status
+                # (effectively deleting their admin access, as they were "removed" in UI)
+                for u in User.objects.filter(is_staff=True):
+                    if u.email.lower() not in submitted_emails:
+                        u.is_staff = False
+                        u.save()
+                return JsonResponse({"success": True})
+                
+            elif key == "permissions":
+                # data is a dict in this case, representing the permissions matrix
+                from apps.dashboard.models import GlobalPermission
+                perm = GlobalPermission.objects.first()
+                if not perm:
+                    perm = GlobalPermission()
+                perm.permissions_json = data
+                perm.save()
                 return JsonResponse({"success": True})
                 
             else:

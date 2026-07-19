@@ -129,6 +129,7 @@ data_replacements = [
     (r'const TWO_FACTOR\s*=\s*\[.*?\];', 'const TWO_FACTOR = {{ two_factor_json|safe }};'),
     (r'const ADMIN_USERS\s*=\s*\[.*?\];', 'const ADMIN_USERS = {{ admin_users_json|safe }};'),
     (r'const EMAIL_SENDING\s*=\s*\[.*?\];', 'const EMAIL_SENDING = {{ email_sending_json|safe }};'),
+    (r'const DEFAULT_PERMISSIONS\s*=\s*\{.*?\};', 'const DEFAULT_PERMISSIONS = {{ permissions_json|safe }};'),
     # Dashboard details (object not array)
     (r'const DASHBOARD_DETAILS\s*=\s*\{.*?\};', 'const DASHBOARD_DETAILS = {{ dashboard_details_json|safe }};'),
     
@@ -137,7 +138,7 @@ data_replacements = [
         r'saveTable\s*=\s*\(key\)\s*=>\s*\{\s*this\.setState\(s\s*=>\s*\(\{\s*tables:\s*\{\s*\.\.\.s\.tables,\s*\[key\]:\s*\{\s*rows:\s*this\.getTable\(s,\s*key\)\.rows,\s*saved:\s*clone\(this\.getTable\(s,\s*key\)\.rows\)\s*\}\s*\}\s*\}\)\);\s*\};',
         r'''saveTable = (key) => {
     const rows = this.getTable(this.state, key).rows;
-    if (['pricing', 'addon', 'press', 'servers', 'privateEmail', 'twoFactor', 'emailSending'].includes(key)) {
+    if (['pricing', 'addon', 'press', 'servers', 'privateEmail', 'twoFactor', 'emailSending', 'adminUsers'].includes(key)) {
         fetch('/admin/data/save/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -152,6 +153,23 @@ data_replacements = [
     } else {
         this.setState(s => ({ tables: { ...s.tables, [key]: { rows: this.getTable(s, key).rows, saved: clone(this.getTable(s, key).rows) } } }));
     }
+  };'''
+    ),
+    # ── savePermissions() function interceptor ─────────
+    (
+        r'savePermissions\s*=\s*\(\)\s*=>\s*this\.setState\(s\s*=>\s*\(\{\s*permissionsSaved:\s*clone\(s\.permissions\)\s*\}\)\);',
+        r'''savePermissions = () => {
+    fetch('/admin/data/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'permissions', data: this.state.permissions })
+    }).then(res => {
+        if(res.ok) {
+            this.setState(s => ({ permissionsSaved: clone(s.permissions) }));
+        } else {
+            alert('Failed to save permissions');
+        }
+    }).catch(err => alert('Network error: ' + err));
   };'''
     ),
 ]

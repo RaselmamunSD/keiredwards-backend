@@ -300,3 +300,11 @@ class EmailSendingDomain(models.Model):
 
     def __str__(self):
         return self.email
+
+
+class GlobalPermission(models.Model):
+    permissions_json = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Global Role Permissions"
