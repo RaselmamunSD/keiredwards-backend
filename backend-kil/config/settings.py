@@ -262,8 +262,8 @@ CORS_ALLOW_HEADERS = ["accept", "authorization", "content-type", "x-csrftoken"]
 # Default to LocMemCache for local development.
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "fontaine-local-cache",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"),
     }
 }
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"

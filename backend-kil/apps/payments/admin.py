@@ -1,23 +1,24 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from django.utils.html import format_html
 
 from .models import Payment, CheckInOption, AddOnOption, SiteSetting
 
 
 @admin.register(CheckInOption)
-class CheckInOptionAdmin(admin.ModelAdmin):
+class CheckInOptionAdmin(ModelAdmin):
     list_display = ("key", "label", "price_per_month", "price_1_year", "price_2_years", "price_3_years")
     search_fields = ("key", "label")
 
 
 @admin.register(AddOnOption)
-class AddOnOptionAdmin(admin.ModelAdmin):
+class AddOnOptionAdmin(ModelAdmin):
     list_display = ("key", "label", "price")
     search_fields = ("key", "label")
 
 
 @admin.register(SiteSetting)
-class SiteSettingAdmin(admin.ModelAdmin):
+class SiteSettingAdmin(ModelAdmin):
     list_display = ("__str__", "discount_2_years_pct", "discount_3_years_pct")
 
     def has_add_permission(self, request):
@@ -26,7 +27,7 @@ class SiteSettingAdmin(admin.ModelAdmin):
 
 
 @admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
+class PaymentAdmin(ModelAdmin):
     list_display = ("id", "user", "amount_with_currency", "transaction_id", "gateway", "status_badge", "created_at", "updated_at")
     list_filter = ("status", "gateway", "currency", "created_at")
     search_fields = ("transaction_id", "gateway_reference", "user__username", "user__email")

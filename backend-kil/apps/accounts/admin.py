@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from django.contrib.auth.admin import UserAdmin
 
 from .models import User
@@ -15,49 +16,49 @@ from apps.dashboard.models import (
     ActiveService,
 )
 
-class CheckInEmailConfigInline(admin.StackedInline):
+class CheckInEmailConfigInline(StackedInline):
     model = CheckInEmailConfig
     can_delete = False
     verbose_name_plural = "Check-In Email Configuration"
 
-class CheckInScheduleConfigInline(admin.StackedInline):
+class CheckInScheduleConfigInline(StackedInline):
     model = CheckInScheduleConfig
     can_delete = False
     verbose_name_plural = "Check-In Schedule Configuration"
 
-class TrustedRecipientInline(admin.TabularInline):
+class TrustedRecipientInline(TabularInline):
     model = TrustedRecipient
     extra = 0
     verbose_name_plural = "Trusted Recipients"
 
-class EmailTemplateConfigInline(admin.StackedInline):
+class EmailTemplateConfigInline(StackedInline):
     model = EmailTemplateConfig
     can_delete = False
     verbose_name_plural = "Email to Recipients Setup"
 
-class PressReleaseConfigInline(admin.StackedInline):
+class PressReleaseConfigInline(StackedInline):
     model = PressReleaseConfig
     can_delete = False
     verbose_name_plural = "Press Release Setup"
 
-class StorageConfigInline(admin.StackedInline):
+class StorageConfigInline(StackedInline):
     model = StorageConfig
     can_delete = False
     verbose_name_plural = "Storage Configuration"
 
-class SetupAccountingConfigInline(admin.StackedInline):
+class SetupAccountingConfigInline(StackedInline):
     model = SetupAccountingConfig
     can_delete = False
     verbose_name_plural = "Security (2FA/Private Email)"
 
-class ActiveServiceInline(admin.TabularInline):
+class ActiveServiceInline(TabularInline):
     model = ActiveService
     extra = 0
     verbose_name_plural = "Purchased Add-Ons & Services"
 
 
 @admin.register(User)
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(UserAdmin, ModelAdmin):
     list_display = ("id", "username", "email", "first_name", "last_name", "is_active", "is_verified", "is_staff", "date_joined")
     list_filter = ("is_active", "is_staff", "is_superuser", "is_verified", "date_joined")
     search_fields = ("username", "email", "phone", "first_name", "last_name")

@@ -1,11 +1,12 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from django.utils.html import format_html
 
 from .models import AuthAuditLog
 
 
 @admin.register(AuthAuditLog)
-class AuthAuditLogAdmin(admin.ModelAdmin):
+class AuthAuditLogAdmin(ModelAdmin):
     list_display = ("id", "user", "action", "method", "endpoint", "status_badge", "ip_address", "user_agent_short", "created_at")
     list_filter = ("action", "method", "was_successful", "created_at")
     search_fields = ("user__username", "user__email", "action", "endpoint", "ip_address")

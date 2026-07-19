@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { getCrossDomainUrl, LOGIN_DOMAIN } from "@/lib/navigation";
 
 function PaymentSuccessContent() {
   const params = useSearchParams();
-  const router = useRouter();
-  const reference = useMemo(() => (params ? params.get("reference") || "" : ""), [params]);
+  // PayPal redirects back with ?token=<OrderID>&PayerID=<id>
+  // Our backend also may use ?reference=<OrderID>
+  const reference = useMemo(() => {
+    if (!params) return "";
+    return params.get("token") || params.get("reference") || "";
+  }, [params]);
+
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [message, setMessage] = useState("Verifying payment...");
   const [redirectTab, setRedirectTab] = useState("documents-and-images");
@@ -55,13 +61,15 @@ function PaymentSuccessContent() {
         <div className="mt-6 flex gap-3">
           <button
             className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm cursor-pointer"
-            onClick={() => router.push(`/dashboard?tab=${redirectTab}`)}
+            onClick={() => {
+              window.location.href = getCrossDomainUrl(LOGIN_DOMAIN, `/dashboard?tab=${redirectTab}`);
+            }}
           >
             Go to Dashboard
           </button>
           <button
             className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm cursor-pointer"
-            onClick={() => router.push("/payment")}
+            onClick={() => window.history.back()}
           >
             Back to Payment
           </button>
