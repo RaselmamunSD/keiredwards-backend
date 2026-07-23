@@ -88,19 +88,69 @@ def _build_admin_data():
 
     # ── 2. ACCOUNTING ORDERS ──────────────────────────────────────────────────
     orders = []
+    # 2a. Add existing BillingRecords (dashboard purchases)
     for b in BillingRecord.objects.select_related('user').order_by('-id'):
         amount_val = _safe_float(b.amount)
         orders.append({
-            "invoice": f"26-{str(b.id).zfill(5)}",
+            "invoice": f"26-B{str(b.id).zfill(4)}",
             "date": b.date,
             "email": b.user.email if b.user else "Unknown",
             "items": [{"name": b.description or "Service", "qty": 1, "unitPrice": amount_val}],
             "paymentType": "PayPal",
-            "confirmation": f"CONF-{b.id + 88212}",
+            "confirmation": f"CONF-B{b.id + 88212}",
             "tax": 0,
             "startDate": b.date,
             "endDate": "—",
         })
+
+    # 2b. Add main Payments (signup or others with orderItems)
+    for p in Payment.objects.filter(status='completed').select_related('user').order_by('-created_at'):
+        meta = p.metadata or {}
+        order_items = meta.get("orderItems", [])
+        
+        # If it's a payment that doesn't have orderItems, and wasn't a specific upgrade,
+        # it might be a duplicate of a BillingRecord. We include it if orderItems exist
+        # or if it is explicitly a type we care about that didn't make a BillingRecord.
+        if not order_items and not meta.get("type"):
+            continue
+            
+        items = []
+        if order_items:
+            for item in order_items:
+                items.append({
+                    "name": item.get("label", "Service"),
+                    "qty": 1,
+                    "unitPrice": _safe_float(item.get("price", 0))
+                })
+        else:
+            amount_val = _safe_float(p.amount)
+            desc = "Service"
+            if meta.get("type") == "storage_upgrade":
+                desc = f"Storage Upgrade ({meta.get('gb')} GB)"
+            elif meta.get("type") == "press_release_upgrade":
+                desc = f"Press Release Upgrade (Tier {meta.get('tier')})"
+            elif meta.get("type") == "setup_accounting_purchase":
+                desc = "Account Setup & Services"
+            items.append({"name": desc, "qty": 1, "unitPrice": amount_val})
+            
+        date_str = p.created_at.strftime("%m/%d/%Y") if p.created_at else ""
+        gateway_name = "PayPal" if p.gateway in ["paypal", "papyl"] else (p.gateway.capitalize() if p.gateway else "Unknown")
+        ref_id = p.gateway_reference or f"CONF-{p.id + 88212}"
+        
+        orders.append({
+            "invoice": f"26-{str(p.id).zfill(5)}",
+            "date": date_str,
+            "email": p.user.email if p.user else "Unknown",
+            "items": items,
+            "paymentType": gateway_name,
+            "confirmation": ref_id,
+            "tax": 0,
+            "startDate": date_str,
+            "endDate": "—",
+        })
+        
+    # Sort all orders by invoice descending
+    orders.sort(key=lambda x: str(x["invoice"]), reverse=True)
 
     # ── 3. REVENUE CALCULATIONS ───────────────────────────────────────────────
     revenue_today = Decimal('0')

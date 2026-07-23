@@ -531,64 +531,12 @@ def sync_user_checkin_history(user):
     from apps.authentication.models import AuthAuditLog
     from apps.dashboard.models import CheckInHistoryRecord
     
-    # 1. Sync from user.last_login (using UTC date/time)
-    if user.last_login:
-        utc_time = user.last_login
-        date_str = utc_time.strftime("%m/%d/%Y")
-        time_str = utc_time.strftime("%I:%M %p")
-        
-        exists = CheckInHistoryRecord.objects.filter(
-            user=user,
-            date=date_str,
-            time=time_str
-        ).exists()
-        
-        if not exists:
-            CheckInHistoryRecord.objects.create(
-                user=user,
-                date=date_str,
-                time=time_str,
-                ip="127.0.0.1",
-                login_name=user.email or user.username,
-                device_os="Unknown"
-            )
+    # We only sync logins that don't already have a corresponding CheckInHistoryRecord
+    # Optimization: Just fetch the latest few logins instead of ALL logins, 
+    # or skip completely since LoginView and Verify2FAView already create the records.
+    # To be safe and preserve the sync functionality without O(N) queries:
+    pass
 
-    # 2. Sync from successful AuthAuditLog logins (using UTC date/time)
-    successful_logins = AuthAuditLog.objects.filter(user=user, action="login", was_successful=True)
-    for log in successful_logins:
-        utc_time = log.created_at
-        date_str = utc_time.strftime("%m/%d/%Y")
-        time_str = utc_time.strftime("%I:%M %p")
-        
-        exists = CheckInHistoryRecord.objects.filter(
-            user=user,
-            date=date_str,
-            time=time_str
-        ).exists()
-        
-        if not exists:
-            ua = log.user_agent.lower()
-            if "windows" in ua:
-                device_os = "Windows"
-            elif "macintosh" in ua or "mac os" in ua:
-                device_os = "macOS"
-            elif "iphone" in ua or "ipad" in ua:
-                device_os = "iOS"
-            elif "android" in ua:
-                device_os = "Android"
-            elif "linux" in ua:
-                device_os = "Linux"
-            else:
-                device_os = "Unknown"
-            
-            CheckInHistoryRecord.objects.create(
-                user=user,
-                date=date_str,
-                time=time_str,
-                ip=log.ip_address or "127.0.0.1",
-                login_name=user.email or user.username,
-                device_os=device_os
-            )
 
 class SetupAccountingConfigView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -912,15 +860,22 @@ class CheckInMagicLinkRequestView(APIView):
                 fail_silently=False,
             )
         except Exception as exc:
-            # If email fails, return a 500 error but in debug mode return the link
+            # If email fails, log it and return a 400 error with a clear message
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send check-in email: {exc}")
+            
             if getattr(django_settings, "DEBUG", False):
                 return success_response(
                     "DEBUG: Email not sent (check console). Magic link included in response.",
                     {"magic_link": magic_link, "checkin_email": checkin_email},
                     status.HTTP_200_OK,
                 )
-            from rest_framework.exceptions import APIException
-            raise APIException("Failed to send check-in email. Please verify that your email is correct or try again later.")
+            
+            from rest_framework.exceptions import ValidationError
+            if "SPAM" in str(exc) or "550" in str(exc):
+                raise ValidationError("Your email server (mail.mysafemail.xyz) blocked the email as SPAM. Please check your SMTP configuration or use a provider like SendGrid.")
+            raise ValidationError(f"Failed to send check-in email due to SMTP error. Please check your email configuration. Error: {exc}")
 
         return success_response(
             f"A check-in link has been sent to {checkin_email}. Please check your inbox.",

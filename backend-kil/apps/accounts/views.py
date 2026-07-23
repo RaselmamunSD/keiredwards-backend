@@ -132,10 +132,16 @@ class LoginView(APIView):
                             ),
                             from_email=settings.DEFAULT_FROM_EMAIL,
                             recipient_list=[config.two_fa_email],
-                            fail_silently=True,
+                            fail_silently=False,
                         )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to send 2FA email: {exc}")
+                        from rest_framework.exceptions import ValidationError
+                        if "SPAM" in str(exc) or "550" in str(exc):
+                            raise ValidationError("Your email server (mail.mysafemail.xyz) blocked the OTP email as SPAM. Please check your SMTP configuration.")
+                        raise ValidationError(f"Failed to send 2FA email due to SMTP error. Error: {exc}")
 
                     # Log the attempt but don't create full login audit yet
                     AuthAuditLog.objects.create(

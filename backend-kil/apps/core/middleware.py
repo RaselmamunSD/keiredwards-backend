@@ -95,6 +95,7 @@ class PaymentRequiredMiddleware:
             # auth namespace (used by frontend)
             "/api/v1/auth/register/",
             "/api/v1/auth/login/",
+            "/api/v1/auth/profile/",
             "/api/v1/auth/password/reset/",
             "/api/v1/auth/2fa/",
             # payments
@@ -103,7 +104,9 @@ class PaymentRequiredMiddleware:
             "/api/v1/payments/verify/",
             "/api/v1/payments/webhook/",
             "/api/v1/payments/pricing/",
+            # admin panels - always exempt
             "/admin/",
+            "/django-admin/",
             "/media/",
         ]
         
@@ -114,6 +117,9 @@ class PaymentRequiredMiddleware:
                 break
 
         if not is_exempt and request.user.is_authenticated:
+            if request.user.is_superuser or request.user.is_staff:
+                return self.get_response(request)
+
             # Check if user has a completed payment
             has_paid = request.user.payments.filter(status="completed").exists()
             if not has_paid:

@@ -9,6 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
+LOGIN_REDIRECT_URL = "/admin/"
+LOGOUT_REDIRECT_URL = "/django-admin/login/"
+
 # ── Optimize Timezone Field Startup on Windows ─────────────────
 # The timezone_field library eagerly loads all IANA timezones (600+)
 # from Python's zoneinfo / tzdata package on startup. On Windows,
