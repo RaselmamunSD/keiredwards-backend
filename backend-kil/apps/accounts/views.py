@@ -140,8 +140,10 @@ class LoginView(APIView):
                         logger.error(f"Failed to send 2FA email: {exc}")
                         from rest_framework.exceptions import ValidationError
                         if "SPAM" in str(exc) or "550" in str(exc):
-                            raise ValidationError("Your email server (mail.mysafemail.xyz) blocked the OTP email as SPAM. Please check your SMTP configuration.")
-                        raise ValidationError(f"Failed to send 2FA email due to SMTP error. Error: {exc}")
+                            raise ValidationError("Your email server blocked the OTP email as SPAM. Please check your SMTP configuration.")
+                        if "Authentication" in str(exc) or "530" in str(exc):
+                            raise ValidationError("Email authentication failed. Please check your SMTP username and password.")
+                        raise ValidationError("We couldn't send the OTP email due to an email server issue. Please try again later or contact support.")
 
                     # Log the attempt but don't create full login audit yet
                     AuthAuditLog.objects.create(

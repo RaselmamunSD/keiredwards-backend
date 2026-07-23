@@ -1,16 +1,12 @@
 import paramiko
-import sys
 
-host = "216.126.194.123"
-user = "iwklog26"
-password = "I1w2k3-Log"
-
-client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-try:
-    client.connect(host, username=user, password=password, timeout=10)
-    stdin, stdout, stderr = client.exec_command("echo 'I1w2k3-Log' | sudo -S docker compose -f ~/app/backend/docker-compose.yml logs --tail=100 web")
-    print(stdout.read().decode())
-    print(stderr.read().decode())
-finally:
+def fetch_logs(ip, user, pw):
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(ip, username=user, password=pw, timeout=10)
+    
+    stdin, stdout, stderr = client.exec_command(f'echo \'{pw}\' | sudo -S docker logs --tail 50 fontaine_web')
+    print("STDOUT:", stdout.read().decode())
     client.close()
+
+fetch_logs('162.248.246.194', 'iwksign26', 'I1w2k3-Sign')

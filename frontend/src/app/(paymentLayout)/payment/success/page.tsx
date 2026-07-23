@@ -30,13 +30,19 @@ function PaymentSuccessContent() {
         const result = await api.paymentsVerify(reference);
         setStatus("ok");
         setMessage(
-          `Payment ${result.data.payment.status} (TX: ${result.data.payment.transaction_id}).`
+          `Payment ${result.data.payment.status} (TX: ${result.data.payment.transaction_id}). Redirecting...`
         );
+        let tab = "documents-and-images";
         if (result.data.payment.metadata?.type === "press_release_upgrade") {
-          setRedirectTab("press-release");
+          tab = "press-release";
         } else if (result.data.payment.metadata?.type === "setup_accounting_purchase") {
-          setRedirectTab("setup-accounting");
+          tab = "setup-accounting";
         }
+        setRedirectTab(tab);
+        // Automatically redirect to the dashboard
+        setTimeout(() => {
+          window.location.href = getCrossDomainUrl(LOGIN_DOMAIN, `/dashboard?tab=${tab}`);
+        }, 1000);
       } catch (error) {
         setStatus("error");
         setMessage(error instanceof Error ? error.message : "Payment verification failed.");

@@ -874,8 +874,10 @@ class CheckInMagicLinkRequestView(APIView):
             
             from rest_framework.exceptions import ValidationError
             if "SPAM" in str(exc) or "550" in str(exc):
-                raise ValidationError("Your email server (mail.mysafemail.xyz) blocked the email as SPAM. Please check your SMTP configuration or use a provider like SendGrid.")
-            raise ValidationError(f"Failed to send check-in email due to SMTP error. Please check your email configuration. Error: {exc}")
+                raise ValidationError("Your email server blocked the email as SPAM. Please check your SMTP configuration.")
+            if "Authentication" in str(exc) or "530" in str(exc):
+                raise ValidationError("Email authentication failed. Please check your SMTP username and password.")
+            raise ValidationError("We couldn't send the check-in email due to an email server issue. Please try again later or contact support.")
 
         return success_response(
             f"A check-in link has been sent to {checkin_email}. Please check your inbox.",
