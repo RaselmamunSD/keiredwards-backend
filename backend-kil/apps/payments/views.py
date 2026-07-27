@@ -157,9 +157,13 @@ class PaymentVerifyView(APIView):
                         press_config.current_tier = tier_int
                         press_config.save()
 
-                        ActiveService.objects.filter(user=payment.user, name="Press Release").update(
-                            is_purchased=True,
-                            active_until="March 7, 2027"
+                        ActiveService.objects.update_or_create(
+                            user=payment.user,
+                            name="Press Release",
+                            defaults={
+                                "is_purchased": True,
+                                "active_until": "March 7, 2027"
+                            }
                         )
 
                         # Add a billing record
@@ -200,9 +204,13 @@ class PaymentVerifyView(APIView):
                     # 2. Process purchase_services (like Private Email, Two-Factor Authentication)
                     if purchase_services:
                         for sname in purchase_services:
-                            ActiveService.objects.filter(user=payment.user, name=sname).update(
-                                is_purchased=True,
-                                active_until=one_year_later
+                            ActiveService.objects.update_or_create(
+                                user=payment.user,
+                                name=sname,
+                                defaults={
+                                    "is_purchased": True,
+                                    "active_until": one_year_later
+                                }
                             )
                             if sname == "Two-Factor Authentication":
                                 config.has_two_fa = True
@@ -235,10 +243,14 @@ class PaymentVerifyView(APIView):
                                 storage_config.total_storage_gb = 5 + gb
                                 storage_config.save()
 
-                                ActiveService.objects.filter(user=payment.user, name="Additional Storage").update(
-                                    additional_info=f"{5 + gb} GB",
-                                    is_purchased=True,
-                                    active_until=one_year_later
+                                ActiveService.objects.update_or_create(
+                                    user=payment.user,
+                                    name="Additional Storage",
+                                    defaults={
+                                        "additional_info": f"{5 + gb} GB",
+                                        "is_purchased": True,
+                                        "active_until": one_year_later
+                                    }
                                 )
                                 BillingRecord.objects.get_or_create(
                                     user=payment.user,
@@ -250,10 +262,14 @@ class PaymentVerifyView(APIView):
 
                     # 4. Process check-in service
                     if check_in_service:
-                        ActiveService.objects.filter(user=payment.user, name="I Was Killed For This Information").update(
-                            additional_info=check_in_service,
-                            is_purchased=True,
-                            active_until=one_year_later
+                        ActiveService.objects.update_or_create(
+                            user=payment.user,
+                            name="I Was Killed For This Information",
+                            defaults={
+                                "additional_info": check_in_service,
+                                "is_purchased": True,
+                                "active_until": one_year_later
+                            }
                         )
                         plan_name = check_in_service.replace(" Check-In", "")
                         CheckInScheduleConfig.objects.filter(user=payment.user).update(
@@ -268,9 +284,13 @@ class PaymentVerifyView(APIView):
 
                     # 5. Process press option
                     if press_option:
-                        ActiveService.objects.filter(user=payment.user, name="Press Release").update(
-                            is_purchased=True,
-                            active_until=one_year_later
+                        ActiveService.objects.update_or_create(
+                            user=payment.user,
+                            name="Press Release",
+                            defaults={
+                                "is_purchased": True,
+                                "active_until": one_year_later
+                            }
                         )
                         tier_map = {
                             "press_release": 0,

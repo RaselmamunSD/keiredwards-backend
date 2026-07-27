@@ -1028,7 +1028,6 @@ function BillingHistoryContent({ billing }: BillingHistoryProps) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gray-500">PR = Pro-Rated charges may appear for mid-cycle storage upgrades.</p>
     </div>
   );
 }
@@ -1247,7 +1246,7 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
         two_fa_enabled: enabled,
         two_fa_email: emailVal,
       });
-      setData(res.data);
+      setData(p => p ? { ...res.data, extra: p.extra } : res.data);
       if (onRefresh) {
         onRefresh();
       }
@@ -1263,7 +1262,7 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
       const res = await api.updateSetupAccounting({
         purchase_service: serviceName,
       });
-      setData(res.data);
+      setData(p => p ? { ...res.data, extra: p.extra } : res.data);
       if (onRefresh) {
         onRefresh();
       }
@@ -1277,7 +1276,7 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
       const res = await api.updateSetupAccounting({
         renew_services: serviceNames,
       });
-      setData(res.data);
+      setData(p => p ? { ...res.data, extra: p.extra } : res.data);
       if (onRefresh) {
         onRefresh();
       }

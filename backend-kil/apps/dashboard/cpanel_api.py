@@ -65,3 +65,54 @@ def create_cpanel_email(email_address, email_password, quota=500):
             
     except Exception as e:
         return False, f"An unexpected error occurred: {str(e)}"
+
+def update_cpanel_email_password(email_address, new_password):
+    """
+    Updates the password for an existing email account in cPanel using the UAPI.
+    """
+    cpanel_host = getattr(settings, 'CPANEL_HOST', None)
+    cpanel_port = getattr(settings, 'CPANEL_PORT', 2083)
+    cpanel_user = getattr(settings, 'CPANEL_USERNAME', None)
+    cpanel_pass = getattr(settings, 'CPANEL_PASSWORD', None)
+    
+    if not all([cpanel_host, cpanel_user, cpanel_pass]):
+        return False, "cPanel credentials are not fully configured."
+        
+    try:
+        if '@' not in email_address:
+            return False, "Invalid email format."
+            
+        email_user, domain = email_address.split('@')
+        
+        session = requests.Session()
+        login_url = f"{cpanel_host.rstrip(':2083')}:{cpanel_port}/login/?login_only=1"
+        login_data = {'user': cpanel_user, 'pass': cpanel_pass}
+        
+        login_response = session.post(login_url, data=login_data, verify=False, timeout=10)
+        login_response.raise_for_status()
+        
+        token = login_response.json().get('security_token')
+        if not token:
+            return False, "Failed to authenticate with cPanel. Invalid credentials."
+            
+        # Call UAPI to update password
+        uapi_url = f"{cpanel_host.rstrip(':2083')}:{cpanel_port}{token}/execute/Email/passwd_pop"
+        params = {
+            'email': email_user,
+            'password': new_password,
+            'domain': domain
+        }
+        
+        uapi_response = session.get(uapi_url, params=params, verify=False, timeout=15)
+        uapi_response.raise_for_status()
+        data = uapi_response.json()
+        
+        if data.get('status') == 1:
+            return True, "Email password updated successfully."
+        else:
+            errors = data.get('errors', [])
+            error_msg = errors[0] if errors else "Unknown error occurred while updating email password."
+            return False, error_msg
+            
+    except Exception as e:
+        return False, f"An unexpected error occurred: {str(e)}"

@@ -22,7 +22,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(credentials);
+      await login();
       router.push("/overview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");

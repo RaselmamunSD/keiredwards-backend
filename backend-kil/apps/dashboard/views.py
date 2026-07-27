@@ -141,21 +141,29 @@ class CheckInEmailConfigView(APIView):
         serializer = CheckInEmailConfigSerializer(config, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
-        # Check if user is trying to set up a private email
-        private_username = serializer.validated_data.get('private_email_username')
+        # We need to look at both the incoming data and the existing data to see if we have enough info to provision it
+        # However, we ONLY want to provision/update cPanel if the password is being SET or CHANGED in this request!
         private_password = serializer.validated_data.get('private_email_password')
-        address_saved = serializer.validated_data.get('private_email_address_saved')
         
-        # Only try to create in cPanel if both username and password are provided and address is being saved
-        if private_username and private_password and address_saved:
-            # We only allow @mysafemail.xyz domain
-            full_email = f"{private_username}@mysafemail.xyz"
+        if private_password:
+            # The password is being set or updated!
+            # Let's get the username (either from this request, or existing in DB)
+            private_username = serializer.validated_data.get('private_email_username', config.private_email_username)
             
-            from apps.dashboard.cpanel_api import create_cpanel_email
-            success, message = create_cpanel_email(full_email, private_password)
-            
-            if not success:
-                return error_response(message, status.HTTP_400_BAD_REQUEST)
+            if private_username:
+                full_email = f"{private_username}@mysafemail.xyz"
+                from apps.dashboard.cpanel_api import create_cpanel_email, update_cpanel_email_password
+                
+                # Try to create it. If it fails with "already taken", it means it already exists in cPanel,
+                # so we should just update the password for it instead.
+                success, message = create_cpanel_email(full_email, private_password)
+                
+                if not success and "already taken" in message.lower():
+                    # It already exists in cPanel, so update the password
+                    success, message = update_cpanel_email_password(full_email, private_password)
+                    
+                if not success:
+                    return error_response(message, status.HTTP_400_BAD_REQUEST)
                 
         serializer.save()
         return success_response("Check-in email config updated successfully.", serializer.data, status.HTTP_200_OK)
@@ -562,7 +570,7 @@ class SetupAccountingConfigView(APIView):
                 config.save()
 
         services = ActiveService.objects.filter(user=request.user)
-        billing = BillingRecord.objects.filter(user=request.user)
+        billing = BillingRecord.objects.filter(user=request.user).order_by('-id')
         history = CheckInHistoryRecord.objects.filter(user=request.user)
 
         from apps.payments.models import AddOnOption
@@ -755,7 +763,7 @@ class SetupAccountingConfigView(APIView):
                 )
 
         services = ActiveService.objects.filter(user=request.user)
-        billing = BillingRecord.objects.filter(user=request.user)
+        billing = BillingRecord.objects.filter(user=request.user).order_by('-id')
         history = CheckInHistoryRecord.objects.filter(user=request.user)
 
         return success_response(

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardTab, TABS } from "@/Types/Types";
-import { api } from "@/lib/api";
+import { api, tokenStorage } from "@/lib/api";
 import CheckInEmail from "./CheckInEmail";
 import CheckInSchedule from "./CheckInSchedule";
 import TrustedRecipients from "./TrustedRecipients";
@@ -13,47 +13,45 @@ import PressRelease from "./PressRelease";
 import DocumentsAndImages from "./DocumentsAndImages";
 import SetupAccounting from "./SetupAccounting";
 
+const VALID_TABS: DashboardTab[] = [
+  "check-in-email",
+  "check-in-schedule",
+  "trusted-recipients",
+  "email-to-recipients",
+  "press-release",
+  "documents-and-images",
+  "setup-accounting",
+];
+
+/** Read the ?tab= query param from the browser URL at mount time. */
+function getInitialTab(): DashboardTab {
+  if (typeof window === "undefined") return "check-in-email";
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get("tab") as DashboardTab | null;
+  return t && VALID_TABS.includes(t) ? t : "check-in-email";
+}
+
 export default function DashboardLayout() {
   const { isLoggedIn, isLoading: authLoading, user } = useAuth();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<DashboardTab>("check-in-email");
+  // Lazy initializer — runs once on mount, reads ?tab= from the real URL.
+  const [activeTab, setActiveTab] = useState<DashboardTab>(getInitialTab);
   const [summary, setSummary] = useState<{
     total_payments: number;
     completed_payment_amount: number;
   } | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
-
   const [lastCheckIn, setLastCheckIn] = useState("");
   const [nextDue, setNextDue] = useState("");
   const [checkInStatus, setCheckInStatus] = useState("");
 
   useEffect(() => {
-    if (!authLoading && !isLoggedIn) {
+    // Only redirect when auth is fully resolved AND no token in localStorage.
+    if (!authLoading && !isLoggedIn && !tokenStorage.getAccess()) {
       router.push("/login");
     }
   }, [authLoading, isLoggedIn, router]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab") as DashboardTab;
-      if (
-        tabParam &&
-        [
-          "check-in-email",
-          "check-in-schedule",
-          "trusted-recipients",
-          "email-to-recipients",
-          "press-release",
-          "documents-and-images",
-          "setup-accounting",
-        ].includes(tabParam)
-      ) {
-        setActiveTab(tabParam);
-      }
-    }
-  }, []);
 
   const loadDashboardData = async () => {
     try {
@@ -97,6 +95,12 @@ export default function DashboardLayout() {
   }, [isLoggedIn]);
 
   // Removed authLoading early return to prevent SSG white flash.
+  if (authLoading) {
+    return <div className="min-h-screen bg-black" />;
+  }
+  if (!isLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-white w-full overflow-x-hidden">
@@ -160,7 +164,10 @@ export default function DashboardLayout() {
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                window.history.replaceState(null, "", "/dashboard?tab=" + tab.id);
+              }}
               className={[
                 "px-4 py-2.5 shrink-0",
                 "text-white text-[10px] font-bold text-center uppercase tracking-widest whitespace-nowrap cursor-pointer",
@@ -181,7 +188,10 @@ export default function DashboardLayout() {
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                window.history.replaceState(null, "", "/dashboard?tab=" + tab.id);
+              }}
               className={[
                 "px-5 py-3.5 shrink-0",
                 "text-white text-[11px] font-bold text-center uppercase tracking-widest whitespace-nowrap cursor-pointer",

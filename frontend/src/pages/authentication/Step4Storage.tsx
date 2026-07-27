@@ -352,6 +352,22 @@ export default function Step4Storage({
       price: parseFloat(row.value.replace('$', '').replace(',', ''))
     }))));
 
+    const checkoutMetadata: Record<string, any> = {
+      type: "setup_accounting_purchase",
+      check_in_service: p.serviceLabel,
+      extra_storage_gb: data.extraStorageGB,
+      purchase_services: [],
+      press_option: null
+    };
+
+    if (addons.privateEmail) checkoutMetadata.purchase_services.push("Private Email");
+
+    if (step3.pressRelease1000) checkoutMetadata.press_option = "press_release_1000";
+    else if (step3.pressRelease500) checkoutMetadata.press_option = "press_release_500";
+    else if (step3.pressRelease250) checkoutMetadata.press_option = "press_release_250";
+
+    localStorage.setItem("checkout_metadata", JSON.stringify(checkoutMetadata));
+
     router.push("/payment");
   };
 

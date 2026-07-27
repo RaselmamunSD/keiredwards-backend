@@ -204,13 +204,8 @@ export default function PressRelease() {
         </div>
         <button
           onClick={handleActiveToggle}
-          disabled={!isPurchased}
           className={`text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors ${
-            !isPurchased
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : isActive
-              ? "bg-red-500 hover:bg-red-400"
-              : "bg-green-500 hover:bg-green-400"
+            isActive ? "bg-red-500 hover:bg-red-400" : "bg-green-500 hover:bg-green-400"
           }`}
         >
           {isActive ? "DISABLE PRESS RELEASE" : "ENABLE PRESS RELEASE"}
@@ -244,12 +239,7 @@ export default function PressRelease() {
             {!isEditing ? (
               <button
                 onClick={handleEdit}
-                disabled={!isPurchased}
-                className={`text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors ${
-                  !isPurchased
-                    ? "bg-gray-300 text-gray-400 cursor-not-allowed border border-gray-200"
-                    : "bg-blue-600 hover:bg-blue-500 cursor-pointer"
-                }`}
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <CiEdit size={14} /> EDIT TEMPLATE
               </button>

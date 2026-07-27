@@ -118,6 +118,7 @@ async function rawRequest<T>(
   const response = await fetch(`${API_URL}/api/v1/${endpoint}`, {
     method,
     headers,
+    cache: "no-store",
     body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
   });
 
@@ -162,11 +163,23 @@ export async function authorizedRequest<T>(
     return await rawRequest<T>(endpoint, method, body, access);
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (!refresh || (!message.includes("token") && !message.includes("authentication"))) {
+    if (!refresh || (!message.includes("token") && !message.includes("authentication") && !message.includes("blacklisted"))) {
       throw error;
     }
-    access = await refreshAccessToken(refresh);
-    return rawRequest<T>(endpoint, method, body, access);
+    try {
+      access = await refreshAccessToken(refresh);
+      return await rawRequest<T>(endpoint, method, body, access);
+    } catch (refreshError) {
+      const refreshMsg = refreshError instanceof Error ? refreshError.message.toLowerCase() : "";
+      if (refreshMsg.includes("token") || refreshMsg.includes("invalid") || refreshMsg.includes("blacklisted")) {
+        // The refresh token itself is dead.
+        tokenStorage.clear();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+      }
+      throw refreshError;
+    }
   }
 }
 

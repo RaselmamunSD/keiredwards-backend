@@ -26,7 +26,7 @@ export default function CheckInVerifyPage() {
         setStatus("success");
         // Small delay to show success before redirect
         setTimeout(() => {
-          router.replace("/dashboard");
+          window.location.href = "/dashboard";
         }, 1500);
       })
       .catch((err: unknown) => {

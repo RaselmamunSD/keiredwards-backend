@@ -12,7 +12,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
+import { api, tokenStorage } from "@/lib/api";
 
 // ── Minutes remaining until 11:59 PM Eastern on the given date ─────────────────
 function getMinutesRemainingUntilEndOfDayET(dateStr: string): number {
@@ -214,10 +214,11 @@ export default function OverviewLayout() {
   const [reloadKey, setReloadKey] = useState<number>(0);
 
   useEffect(() => {
-    if (!authLoading && !isLoggedIn) {
+    if (!authLoading && !isLoggedIn && !tokenStorage.getAccess()) {
       router.push("/login");
     }
   }, [authLoading, isLoggedIn, router]);
+
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -350,7 +351,13 @@ export default function OverviewLayout() {
     router.push("/");
   };
 
-  // Removed authLoading block to prevent SSG flashing.
+  // Removed authLoading block from top to prevent SSG flashing and hooks errors.
+  if (authLoading) {
+    return <div className="min-h-screen bg-black" />;
+  }
+  if (!isLoggedIn) {
+    return null;
+  }
 
   if (error) {
     return (
