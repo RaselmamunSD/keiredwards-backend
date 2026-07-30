@@ -60,6 +60,7 @@ export default function PressRelease() {
   const [currentTier, setCurrentTier] = useState(0);
   const [category, setCategory] = useState("");
   const [tiers, setTiers] = useState<Array<{ count: string; label: string; price: string | null }>>(REACH_TIERS);
+  const [pressCategories, setPressCategories] = useState<string[]>([]);
 
   // ── Alert Modal State ──
   const [subject, setSubject] = useState("URGENT: Critical Information Released");
@@ -70,6 +71,14 @@ export default function PressRelease() {
 
   useEffect(() => {
     const load = async () => {
+      try {
+        const res = await api.get("/dashboard/public/press-categories/");
+        if (res.data?.categories) {
+          setPressCategories(res.data.categories);
+        }
+      } catch (err) {
+        console.error("Failed to load press categories", err);
+      }
       try {
         const res = await api.getPressRelease();
         setIsActive(res.data.is_active);
@@ -287,7 +296,7 @@ export default function PressRelease() {
               className="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
             >
               <option value="">Select a category...</option>
-              {["Political Corruption", "Corporate Fraud", "Environmental Crimes", "Human Rights Violations", "Financial Misconduct", "Government Corruption"].map((c) => (
+              {pressCategories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

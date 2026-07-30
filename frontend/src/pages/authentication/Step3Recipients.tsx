@@ -4,8 +4,9 @@
 // Updated: press release tiers are 250 / 500 / 1,000 media organizations (per client HTML).
 // Adopts white-card aesthetic from client review.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Step3Data } from "./SignupFlow";
+import api from "../../../axios";
 
 // ─── Press release options matching client's HTML ─────────────────────────────
 const PRESS_OPTIONS = [
@@ -32,18 +33,6 @@ const PRESS_OPTIONS = [
   },
 ];
 
-const PRESS_CATEGORIES = [
-  "Political / Government Corruption",
-  "Corporate Fraud & Whistleblowing",
-  "Human Rights Violations",
-  "Environmental Evidence",
-  "Medical / Healthcare Disclosure",
-  "Legal Evidence & Testimony",
-  "Personal Safety & Threats",
-  "Financial Fraud & Banking",
-  "Other",
-];
-
 const DEFAULT_STEP3: Step3Data = {
   sendToRecipients: true,
   pressRelease250: false,
@@ -61,6 +50,17 @@ interface Props {
 
 export default function Step3Recipients({ data = DEFAULT_STEP3, onChange, onBack, onNext }: Props) {
   const [showError, setShowError] = useState(false);
+  const [pressCategories, setPressCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.get("/dashboard/public/press-categories/")
+      .then(res => {
+        if (res.data?.categories) {
+          setPressCategories(res.data.categories);
+        }
+      })
+      .catch(err => console.error("Failed to load press categories", err));
+  }, []);
 
   // Determine which option is selected
   const selectedField: keyof Step3Data | null =
@@ -235,7 +235,7 @@ export default function Step3Recipients({ data = DEFAULT_STEP3, onChange, onBack
                 ].join(" ")}
               >
                 <option value="">Select category of information…</option>
-                {PRESS_CATEGORIES.map((cat) => (
+                {pressCategories.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>

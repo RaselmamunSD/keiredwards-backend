@@ -33,6 +33,7 @@ from .models import (
     CheckInHistoryRecord,
     ContactMessage,
     StoragePlan,
+    PressCategory,
 )
 from .serializers import (
     DashboardWidgetSerializer,
@@ -982,3 +983,11 @@ class VaultFileStatusView(APIView):
             },
             status.HTTP_200_OK
         )
+
+
+class PublicPressCategoriesView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        categories = list(PressCategory.objects.order_by('id').values_list('name', flat=True))
+        return success_response({'categories': categories}, 'Press categories fetched successfully')

@@ -623,11 +623,12 @@ function ActiveServicesContent({
 interface NewOrdersContentProps {
   addonsList: Array<{ key: string; label: string; description: string; price: number }>;
   pressOptionsList: Array<{ key: string; label: string; description: string; price: number }>;
+  pressCategories: string[];
   purchasedServices: Array<{ name: string; is_purchased: boolean }>;
   onSuccess?: () => void;
 }
 
-function NewOrdersContent({ addonsList, pressOptionsList, purchasedServices, onSuccess }: NewOrdersContentProps) {
+function NewOrdersContent({ addonsList, pressOptionsList, pressCategories, purchasedServices, onSuccess }: NewOrdersContentProps) {
   const [step, setStep] = useState<NewOrderStep>("addons");
   const [selectedAddons, setSelectedAddons] = useState<Record<string, boolean>>({});
   const [deliveryChoice, setDeliveryChoice] = useState<"trusted" | "press" | "">("");
@@ -892,7 +893,7 @@ function NewOrdersContent({ addonsList, pressOptionsList, purchasedServices, onS
               }`}
           >
             <option value="">{categoryDisabled ? "Select a press release option first" : "Category of information..."}</option>
-            {!categoryDisabled && ["Political Corruption", "Corporate Fraud", "Environmental Crimes", "Human Rights Violations", "Financial Misconduct", "Government Corruption"].map(c => (
+            {!categoryDisabled && pressCategories.map(c => (
               <option key={c}>{c}</option>
             ))}
           </select>
@@ -1195,13 +1196,15 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
     login: false, loginSecurity: false, activeServices: false,
     newOrders: false, billingHistory: false, checkInHistory: false, cancelServices: false,
   });
+  const [pressCategories, setPressCategories] = useState<string[]>([]);
 
   const loadData = async () => {
     try {
-      const [setupRes, vaultRes, profileRes] = await Promise.all([
+      const [setupRes, vaultRes, profileRes, pressRes] = await Promise.all([
         api.getSetupAccounting(),
         api.getVaultFiles(),
-        api.profile()
+        api.profile(),
+        api.get("/dashboard/public/press-categories/").catch(() => ({ data: { categories: [] } }))
       ]);
       
       const storageTotalGB = vaultRes.data.storage_config.total_storage_gb || 5;
@@ -1226,6 +1229,9 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
           storageTotalGB
         }
       });
+      if (pressRes.data?.categories) {
+        setPressCategories(pressRes.data.categories);
+      }
       if (onRefresh) {
         onRefresh();
       }
@@ -1362,6 +1368,7 @@ export default function SetupAccounting({ onRefresh }: { onRefresh?: () => void 
             <NewOrdersContent
               addonsList={data.addons || []}
               pressOptionsList={data.press_release_options || []}
+              pressCategories={pressCategories}
               purchasedServices={data.services}
               onSuccess={loadData}
             />

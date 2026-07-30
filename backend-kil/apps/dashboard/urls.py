@@ -15,6 +15,7 @@ from .views import (
     ContactMessageCreateView,
     CheckInMagicLinkRequestView,
     CheckInMagicLinkVerifyView,
+    PublicPressCategoriesView,
 )
 
 urlpatterns = [
@@ -32,5 +33,6 @@ urlpatterns = [
     path("contact/", ContactMessageCreateView.as_view(), name="dashboard-contact"),
     path("checkin/request-link/", CheckInMagicLinkRequestView.as_view(), name="checkin-request-link"),
     path("checkin/verify-link/", CheckInMagicLinkVerifyView.as_view(), name="checkin-verify-link"),
+    path("public/press-categories/", PublicPressCategoriesView.as_view(), name="public-press-categories"),
 ]
 
