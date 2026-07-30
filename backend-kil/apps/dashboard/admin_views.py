@@ -471,7 +471,7 @@ def _build_admin_data():
 
 class CustomAdminDashboardView(UserPassesTestMixin, TemplateView):
     template_name = "dashboard/custom_admin.html"
-    login_url = "/django-admin/login/?next=/admin/"
+    login_url = "/admin/login/?next=/"
 
     def test_func(self):
         return self.request.user.is_authenticated and self.request.user.is_staff
@@ -757,9 +757,9 @@ class AdminLogoutView(View):
     """Logs out the admin user and redirects to login."""
     def post(self, request, *args, **kwargs):
         logout(request)
-        return JsonResponse({"success": True, "redirect": "/django-admin/login/?next=/admin/"})
+        return JsonResponse({"success": True, "redirect": "/admin/login/?next=/"})
 
     def get(self, request, *args, **kwargs):
         logout(request)
         from django.shortcuts import redirect
-        return redirect("/django-admin/login/?next=/admin/")
+        return redirect("/admin/login/?next=/")

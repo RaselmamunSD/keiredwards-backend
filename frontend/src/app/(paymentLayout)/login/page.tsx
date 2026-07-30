@@ -7,16 +7,16 @@ import StepCredentials from "@/pages/authentication/login/StepCredentials";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
-  const { login, isLoggedIn, isLoading } = useAuth();
+  const { login, logout, isLoggedIn, isLoading } = useAuth();
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && isLoggedIn) {
-      router.push("/overview");
-    }
-  }, [isLoggedIn, isLoading, router]);
+    // Force logout when visiting the login page to ensure user must always re-authenticate
+    logout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSuccess = async (credentials: LoginCredentials) => {
     setError("");

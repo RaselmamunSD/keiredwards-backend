@@ -32,13 +32,7 @@ def api_v1_root(_request):
 from apps.dashboard.admin_views import CustomAdminDashboardView, AdminDataApiView, AdminLogoutView, AdminSaveDataApiView
 
 urlpatterns = [
-    path("", api_root, name="api-root"),
     path("api/v1/", api_v1_root, name="api-v1-root"),
-    path("admin/", CustomAdminDashboardView.as_view(), name="custom-admin"),
-    path("admin/data/", AdminDataApiView.as_view(), name="admin-data-api"),
-    path("admin/data/save/", AdminSaveDataApiView.as_view(), name="admin-save-data-api"),
-    path("admin/logout/", AdminLogoutView.as_view(), name="admin-logout"),
-    path("django-admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
@@ -47,6 +41,20 @@ urlpatterns = [
     path("api/v1/payments/", include("apps.payments.urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
 ]
+
+if getattr(settings, 'IS_ADMIN_SERVER', False):
+    urlpatterns += [
+        path("api-root/", api_root, name="api-root"),
+        path("", CustomAdminDashboardView.as_view(), name="custom-admin"),
+        path("admin/data/", AdminDataApiView.as_view(), name="admin-data-api"),
+        path("admin/data/save/", AdminSaveDataApiView.as_view(), name="admin-save-data-api"),
+        path("admin/logout/", AdminLogoutView.as_view(), name="admin-logout"),
+        path("admin/", admin.site.urls),
+    ]
+else:
+    urlpatterns += [
+        path("", api_root, name="api-root"),
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

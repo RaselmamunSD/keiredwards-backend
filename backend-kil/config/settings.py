@@ -78,6 +78,7 @@ SECRET_KEY = env(
 )
 DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+IS_ADMIN_SERVER = env.bool("IS_ADMIN_SERVER", default=False)
 
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
     "https://iwaskilledforthisinformation.one",
