@@ -513,4 +513,6 @@ export const api = {
     rawRequest<{ checkin_email?: string; magic_link?: string }>("dashboard/checkin/request-link/", "POST", payload),
   verifyCheckInLink: (payload: { token: string }) =>
     rawRequest<{ access: string; refresh: string }>("dashboard/checkin/verify-link/", "POST", payload),
+  get: (url: string) =>
+    rawRequest<any>(url.replace(/^\//, ""), "GET"),
 };
