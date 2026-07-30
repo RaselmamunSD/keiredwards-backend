@@ -1402,17 +1402,8 @@ const EMAIL_TEMPLATES = [
   { id: 1, name: 'Message 1 - Title Message to Trusted Recipients', subject: 'I have information please read it.', dateCreated: '07/17/2026', body: '<p>I was using a service I Was Killed for this Information. They are holding information that I need you to distribute to the proper authorizes and the press. It is about______________. I was killed or stopped before I could distribute this information. Please do this for me.</p>' },
 ];
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const PRESS_CATEGORIES = ['Newspapers', 'Television', 'Radio', 'Digital/Online', 'Wire Services', 'Magazines'];
-const MEDIA_COMPANIES = [
-  { company: 'The Daily Sentinel', contact: 'R. Alvarez', email: 'tips@dailysentinel.example', dateAdded: '2026-03-04', category: 'Newspapers' },
-  { company: 'Metro Herald', contact: 'J. Kowalski', email: 'news@metroherald.example', dateAdded: '2026-04-11', category: 'Newspapers' },
-  { company: 'Channel 9 News', contact: 'D. Whitfield', email: 'assignments@ch9news.example', dateAdded: '2026-02-18', category: 'Television' },
-  { company: 'National Broadcast Network', contact: 'P. Anders', email: 'desk@nbnetwork.example', dateAdded: '2026-05-02', category: 'Television' },
-  { company: 'Public Radio Collective', contact: 'S. Nguyen', email: 'newsroom@pradio.example', dateAdded: '2026-01-27', category: 'Radio' },
-  { company: 'The Verge Wire', contact: 'A. Simmons', email: 'tips@vergewire.example', dateAdded: '2026-06-09', category: 'Digital/Online' },
-  { company: 'Associated Press Desk', contact: 'M. Feldman', email: 'intake@apdesk.example', dateAdded: '2026-03-30', category: 'Wire Services' },
-  { company: 'National Affairs Monthly', contact: 'T. Okafor', email: 'editors@nationalaffairs.example', dateAdded: '2026-04-22', category: 'Magazines' },
-];
+const PRESS_CATEGORIES = {{ press_categories_json|safe }};
+const MEDIA_COMPANIES = {{ media_companies_json|safe }};
 const ACCOUNTING_ORDERS = {{ accounting_orders_json|safe }};
 const SERVERS = {{ servers_json|safe }};
 const PRIVATE_EMAIL = {{ private_email_json|safe }};
@@ -1461,7 +1452,8 @@ class Component extends DCLogic {
     twoFactorSectionOpen: true,
     emailSendingSectionOpen: true,
     pressCategories: clone(PRESS_CATEGORIES),
-    selectedPressCategory: PRESS_CATEGORIES[0],
+    pressCategoriesSaved: clone(PRESS_CATEGORIES),
+    selectedPressCategory: PRESS_CATEGORIES[0] || '',
     newCategoryText: '',
     sortField: 'email',
     sortDir: 'asc',
@@ -1705,8 +1697,26 @@ class Component extends DCLogic {
   cancelAddon = () => this.cancelTable('addon');
   cancelPress = () => this.cancelTable('press');
   addMediaCompany = () => this.addRow('media');
-  saveMedia = () => this.saveTable('media');
-  cancelMedia = () => this.cancelTable('media');
+  saveMedia = () => {
+    const rows = this.getTable(this.state, 'media').rows;
+    const categories = this.state.pressCategories;
+    fetch('/admin/data/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'media', data: { categories, companies: rows } })
+    }).then(res => {
+        if(res.ok) {
+            this.setState(s => ({
+                pressCategoriesSaved: clone(categories),
+                tables: { ...s.tables, media: { rows: clone(rows), saved: clone(rows) } }
+            }));
+        } else { alert('Failed to save media'); }
+    }).catch(err => alert('Network error: ' + err));
+  };
+  cancelMedia = () => {
+    this.cancelTable('media');
+    this.setState(s => ({ pressCategories: clone(s.pressCategoriesSaved || PRESS_CATEGORIES) }));
+  };
   importMediaCsv = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -2144,7 +2154,7 @@ class Component extends DCLogic {
       permissionsNotDirty: !this.isPermissionsDirty(),
       saveMedia: this.saveMedia,
       cancelMedia: this.cancelMedia,
-      mediaNotDirty: !this.isDirty('media'),
+      mediaNotDirty: !this.isDirty('media') && JSON.stringify(this.state.pressCategories) === JSON.stringify(this.state.pressCategoriesSaved),
       isAccounting: view === 'accounting',
       isAccountingDetail: view === 'accountingDetail',
       searchInvoice: this.state.searchInvoice,

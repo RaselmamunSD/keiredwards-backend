@@ -308,3 +308,19 @@ class GlobalPermission(models.Model):
 
     def __str__(self):
         return "Global Role Permissions"
+
+
+class PressCategory(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    def __str__(self):
+        return self.name
+
+
+class MediaCompany(models.Model):
+    company = models.CharField(max_length=255)
+    contact = models.CharField(max_length=255, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    date_added = models.CharField(max_length=50, blank=True, null=True)
+    category = models.CharField(max_length=255)
+    def __str__(self):
+        return self.company

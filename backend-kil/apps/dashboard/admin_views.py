@@ -451,6 +451,23 @@ def _build_admin_data():
         except Exception:
             pass
 
+    try:
+        from apps.dashboard.models import PressCategory, MediaCompany
+        press_categories = [c.name for c in PressCategory.objects.all().order_by('id')]
+        media_companies = [
+            {
+                "company": m.company,
+                "contact": m.contact or "",
+                "email": m.email or "",
+                "dateAdded": m.date_added or "",
+                "category": m.category
+            }
+            for m in MediaCompany.objects.all().order_by('id')
+        ]
+    except Exception:
+        press_categories = []
+        media_companies = []
+
     return {
         "users": users,
         "orders": orders,
@@ -466,6 +483,8 @@ def _build_admin_data():
         "admin_users": admin_users,
         "permissions": permissions,
         "dashboard_details": dashboard_details,
+        "press_categories": press_categories,
+        "media_companies": media_companies,
     }
 
 
@@ -496,6 +515,8 @@ class CustomAdminDashboardView(UserPassesTestMixin, TemplateView):
         context["permissions_json"] = json.dumps(data.get("permissions", {}), default=str)
         context["email_sending_json"] = json.dumps(data.get("email_sending", []), default=str)
         context["dashboard_details_json"] = json.dumps(data.get("dashboard_details", {}), default=str)
+        context["press_categories_json"] = json.dumps(data.get("press_categories", []), default=str)
+        context["media_companies_json"] = json.dumps(data.get("media_companies", []), default=str)
         return context
 
 
@@ -523,6 +544,8 @@ class AdminDataApiView(View):
                 "email_sending": data.get("email_sending", []),
                 "admin_users": data.get("admin_users", []),
                 "dashboard_details": data.get("dashboard_details", {}),
+                "press_categories": data.get("press_categories", []),
+                "media_companies": data.get("media_companies", []),
                 "timestamp": timezone.now().isoformat(),
             }, safe=False, json_dumps_params={"default": str})
         except Exception as e:
@@ -627,6 +650,27 @@ class AdminSaveDataApiView(View):
                         price=price
                     )
                     tier_idx += 1
+                return JsonResponse({"success": True})
+                
+            elif key == "media":
+                from apps.dashboard.models import PressCategory, MediaCompany
+                # data is expected to be a dict with 'categories' and 'companies'
+                categories = data.get("categories", [])
+                companies = data.get("companies", [])
+                
+                PressCategory.objects.all().delete()
+                for c_name in categories:
+                    PressCategory.objects.get_or_create(name=c_name)
+                    
+                MediaCompany.objects.all().delete()
+                for item in companies:
+                    MediaCompany.objects.create(
+                        company=item.get("company", ""),
+                        contact=item.get("contact", ""),
+                        email=item.get("email", ""),
+                        date_added=item.get("dateAdded", ""),
+                        category=item.get("category", "")
+                    )
                 return JsonResponse({"success": True})
                 
             elif key == "servers":
