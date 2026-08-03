@@ -990,4 +990,4 @@ class PublicPressCategoriesView(APIView):
 
     def get(self, request, *args, **kwargs):
         categories = list(PressCategory.objects.order_by('id').values_list('name', flat=True))
-        return success_response({'categories': categories}, 'Press categories fetched successfully')
+        return success_response('Press categories fetched successfully.', {'categories': categories}, status.HTTP_200_OK)

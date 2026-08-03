@@ -214,7 +214,7 @@ export default function OverviewLayout() {
   const [reloadKey, setReloadKey] = useState<number>(0);
 
   useEffect(() => {
-    if (!authLoading && !isLoggedIn && !tokenStorage.getAccess()) {
+    if (!authLoading && !isLoggedIn) {
       router.push("/login");
     }
   }, [authLoading, isLoggedIn, router]);

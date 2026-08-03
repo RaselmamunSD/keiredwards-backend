@@ -47,8 +47,8 @@ export default function DashboardLayout() {
   const [checkInStatus, setCheckInStatus] = useState("");
 
   useEffect(() => {
-    // Only redirect when auth is fully resolved AND no token in localStorage.
-    if (!authLoading && !isLoggedIn && !tokenStorage.getAccess()) {
+    // Only redirect when auth is fully resolved and user is not logged in.
+    if (!authLoading && !isLoggedIn) {
       router.push("/login");
     }
   }, [authLoading, isLoggedIn, router]);

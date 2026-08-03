@@ -105,7 +105,8 @@ async function rawRequest<T>(
   endpoint: string,
   method: HttpMethod,
   body?: unknown,
-  token?: string
+  token?: string,
+  timeoutMs: number = 15000
 ): Promise<ApiEnvelope<T>> {
   const headers: Record<string, string> = {};
   if (!(body instanceof FormData)) {
@@ -115,29 +116,43 @@ async function rawRequest<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}/api/v1/${endpoint}`, {
-    method,
-    headers,
-    cache: "no-store",
-    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
-  });
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
-  let payload: ApiEnvelope<T> & ApiErrorBody;
   try {
-    payload = (await response.json()) as ApiEnvelope<T> & ApiErrorBody;
-  } catch {
-    throw new ApiRequestError("Invalid response from server.", response.status, {});
-  }
+    const response = await fetch(`${API_URL}/api/v1/${endpoint}`, {
+      method,
+      headers,
+      cache: "no-store",
+      body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
+      signal: controller?.signal,
+    });
 
-  if (!response.ok) {
-    const text = formatApiErrorMessage(payload);
-    throw new ApiRequestError(text, response.status, payload);
+    let payload: ApiEnvelope<T> & ApiErrorBody;
+    try {
+      payload = (await response.json()) as ApiEnvelope<T> & ApiErrorBody;
+    } catch {
+      throw new ApiRequestError("Invalid response from server.", response.status, {});
+    }
+
+    if (!response.ok) {
+      const text = formatApiErrorMessage(payload);
+      throw new ApiRequestError(text, response.status, payload);
+    }
+    if (payload.success === false) {
+      const text = formatApiErrorMessage(payload);
+      throw new ApiRequestError(text, response.status, payload);
+    }
+    return payload as ApiEnvelope<T>;
+  } catch (err) {
+    if (err instanceof ApiRequestError) throw err;
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiRequestError("Request timed out. Please try again.", 408, {});
+    }
+    throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
-  if (payload.success === false) {
-    const text = formatApiErrorMessage(payload);
-    throw new ApiRequestError(text, response.status, payload);
-  }
-  return payload as ApiEnvelope<T>;
 }
 
 async function refreshAccessToken(refresh: string): Promise<string> {
@@ -163,7 +178,7 @@ export async function authorizedRequest<T>(
     return await rawRequest<T>(endpoint, method, body, access);
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (!refresh || (!message.includes("token") && !message.includes("authentication") && !message.includes("blacklisted"))) {
+    if (!refresh || (!message.includes("token") && !message.includes("authentication") && !message.includes("blacklisted") && !message.includes("401"))) {
       throw error;
     }
     try {
@@ -171,10 +186,10 @@ export async function authorizedRequest<T>(
       return await rawRequest<T>(endpoint, method, body, access);
     } catch (refreshError) {
       const refreshMsg = refreshError instanceof Error ? refreshError.message.toLowerCase() : "";
-      if (refreshMsg.includes("token") || refreshMsg.includes("invalid") || refreshMsg.includes("blacklisted")) {
+      if (refreshMsg.includes("token") || refreshMsg.includes("invalid") || refreshMsg.includes("blacklisted") || refreshMsg.includes("401")) {
         // The refresh token itself is dead.
         tokenStorage.clear();
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
           window.location.href = "/login";
         }
       }
@@ -196,8 +211,17 @@ export const api = {
     rawRequest<{ access?: string; refresh?: string; requires_2fa?: boolean; temp_token?: string; masked_email?: string }>("auth/login/", "POST", credentials),
   verify2FA: (payload: { temp_token: string; code: string }) =>
     rawRequest<{ access: string; refresh: string }>("auth/2fa/verify/", "POST", payload),
-  logout: () =>
-    authorizedRequest<{}>("auth/logout/", "POST", { refresh: tokenStorage.getRefresh() }),
+  logout: async () => {
+    const refresh = tokenStorage.getRefresh();
+    const access = tokenStorage.getAccess();
+    if (refresh) {
+      try {
+        await rawRequest<{}>("auth/logout/", "POST", { refresh }, access);
+      } catch {
+        // Ignore logout API failures
+      }
+    }
+  },
   passwordReset: (email: string) =>
     rawRequest<{ uid: string; token: string }>("auth/password/reset/", "POST", { email }),
   passwordResetConfirm: (payload: {

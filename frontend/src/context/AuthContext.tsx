@@ -57,10 +57,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           email: profile.data.email,
         });
       } catch {
-        // Profile fetch failed (network error, token expired, etc.)
-        // Do NOT clear tokens — the user may still have valid tokens
-        // and clearing them forces an unnecessary re-login.
-        console.warn("Profile fetch failed during hydration; keeping tokens.");
+        if (!tokenStorage.getAccess()) {
+          setIsLoggedIn(false);
+          setAccessToken("");
+          setUser(null);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -72,13 +73,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const access = tokenStorage.getAccess();
     if (!access) return;
     setAccessToken(access);
-    const profile = await api.profile();
-    setUser({
-      id: profile.data.id,
-      username: profile.data.username,
-      email: profile.data.email,
-    });
     setIsLoggedIn(true);
+    try {
+      const profile = await api.profile();
+      setUser({
+        id: profile.data.id,
+        username: profile.data.username,
+        email: profile.data.email,
+      });
+    } catch (e) {
+      console.warn("Could not fetch profile during login:", e);
+    }
   };
 
   const logout = async () => {
