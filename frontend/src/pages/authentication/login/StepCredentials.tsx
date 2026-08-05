@@ -33,10 +33,6 @@ const LEGAL_CONTENT = [
   },
   {
     type: "paragraph",
-    text: "This platform is designed to protect sensitive information and automatically distribute it to authorized recipients in the event of the account holder's incapacitation or death.",
-  },
-  {
-    type: "paragraph",
     text: "Any attempt to gain unauthorized access, tamper with, disable, or otherwise interfere with this system constitutes a serious violation of federal and state laws, including but not limited to:",
   },
   {
