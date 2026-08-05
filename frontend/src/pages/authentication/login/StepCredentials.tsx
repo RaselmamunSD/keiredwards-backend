@@ -465,7 +465,7 @@ export default function StepCredentials({ onSuccess }: Props) {
           </div>
 
           {/* ── Warning Callout ── */}
-          <div className="mb-6 border border-[#EF3832] rounded bg-[#EF3832]/10 p-2 flex gap-3 items-start">
+          <div className="mb-6 border border-[#EF3832] rounded bg-[#EF3832]/10 p-3 flex gap-3 items-start">
             <div className="shrink-0 mt-0.5">
               <svg
                 className="w-5 h-5 text-[#EF3832]"
@@ -482,8 +482,11 @@ export default function StepCredentials({ onSuccess }: Props) {
               </svg>
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-[#EF3832]/90 text-sm leading-relaxed tracking-wide">
-                Warning: No password recovery. Losing your email or password will permanently lock your account and data.
+              <p className="text-[#EF3832] text-xs sm:text-sm font-semibold leading-snug">
+                Warning: There is NO password recovery or reset.
+              </p>
+              <p className="text-white/90 text-xs sm:text-sm leading-relaxed">
+                If you lose or forget your email or password, you will be permanently locked out of your account.
               </p>
             </div>
           </div>
